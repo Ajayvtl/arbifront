@@ -29,7 +29,7 @@ export default function GalleryPage() {
             if (res.data.data.heroImage) {
                 if (res.data.data.heroImage) {
                     // Prepend API URL if relative path
-                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://sef146.convrg.click/api/v1';
                     const baseUrl = apiUrl.replace('/api/v1', '');
 
                     const url = res.data.data.heroImage.startsWith('http')
@@ -77,7 +77,7 @@ export default function GalleryPage() {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://sef146.convrg.click/api/v1';
             const baseUrl = apiUrl.replace('/api/v1', '');
 
             const url = res.data.data.url.startsWith('http')

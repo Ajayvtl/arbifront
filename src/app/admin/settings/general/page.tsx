@@ -76,7 +76,7 @@ export default function GeneralSettingsPage() {
 
     if (loading) return <div className="p-8">Loading settings...</div>;
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://sef146.convrg.click/api/v1';
     // Helper to resolve logo URL if relative
     const resolveLogo = (path) => {
         if (!path) return null;

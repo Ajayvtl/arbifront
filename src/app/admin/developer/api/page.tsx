@@ -250,7 +250,7 @@ export default function ApiPage() {
                                     Authorization: Bearer {`<YOUR_API_KEY>`}
                                 </div>
                                 <h3>Base URL</h3>
-                                <p><code>http://localhost:5000/api/v1/dev</code></p>
+                                <p><code>https://sef146.convrg.click/api/v1/dev</code></p>
                             </section>
 
                             <hr className="my-8" />
