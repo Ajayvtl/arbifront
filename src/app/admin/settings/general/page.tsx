@@ -3,29 +3,48 @@ import React, { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { PhotoIcon, BuildingOffice2Icon } from '@heroicons/react/24/solid';
 
+type SettingsState = {
+    site_name: string;
+    brand_name: string;
+    contact_email: string;
+    contact_phone: string;
+    contact_address: string;
+    logo: string;
+    logo_url: string;
+};
+
+type MessageState = {
+    type: 'success' | 'error';
+    text: string;
+} | null;
+
 export default function GeneralSettingsPage() {
-    const [settings, setSettings] = useState({
+    const [settings, setSettings] = useState<SettingsState>({
         site_name: '',
         brand_name: '',
         contact_email: '',
         contact_phone: '',
         contact_address: '',
-        logo_url: '' // For display
+        logo: '',
+        logo_url: ''
     });
-    const [logoFile, setLogoFile] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [message, setMessage] = useState(null);
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [saving, setSaving] = useState<boolean>(false);
+    const [message, setMessage] = useState<MessageState>(null);
 
     useEffect(() => {
         fetchSettings();
     }, []);
 
-    const fetchSettings = async () => {
+    const fetchSettings = async (): Promise<void> => {
         try {
             const res = await api.get('/settings');
             if (res.data && res.data.data) {
-                setSettings(res.data.data);
+                setSettings((prev) => ({
+                    ...prev,
+                    ...res.data.data
+                }));
             }
         } catch (error) {
             console.error("Failed to fetch settings", error);
@@ -34,17 +53,19 @@ export default function GeneralSettingsPage() {
         }
     };
 
-    const handleFileChange = (e) => {
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
         if (e.target.files && e.target.files[0]) {
             setLogoFile(e.target.files[0]);
         }
     };
 
-    const handleChange = (e) => {
+    const handleChange = (
+        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    ): void => {
         setSettings({ ...settings, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
         e.preventDefault();
         setSaving(true);
         setMessage(null);
@@ -56,6 +77,7 @@ export default function GeneralSettingsPage() {
             formData.append('contact_email', settings.contact_email);
             formData.append('contact_phone', settings.contact_phone);
             formData.append('contact_address', settings.contact_address);
+
             if (logoFile) {
                 formData.append('logo', logoFile);
             }
@@ -65,7 +87,7 @@ export default function GeneralSettingsPage() {
             });
 
             setMessage({ type: 'success', text: 'Settings updated successfully!' });
-            fetchSettings(); // Refresh to see updated logo URL
+            fetchSettings();
         } catch (error) {
             console.error("Failed to save settings", error);
             setMessage({ type: 'error', text: 'Failed to save settings.' });
@@ -77,11 +99,10 @@ export default function GeneralSettingsPage() {
     if (loading) return <div className="p-8">Loading settings...</div>;
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://sef146.convrg.click/api/v1';
-    // Helper to resolve logo URL if relative
-    const resolveLogo = (path) => {
+
+    const resolveLogo = (path: string | null | undefined): string | null => {
         if (!path) return null;
         if (path.startsWith('http')) return path;
-        // Clean double slashes
         const base = API_URL.replace('/api/v1', '');
         return `${base}${path}`;
     };
@@ -94,7 +115,7 @@ export default function GeneralSettingsPage() {
                     Company Settings & Branding
                 </h1>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Configure your tenant's brand identity, logo, and contact details. These settings will be reflected on your public website and invoices.
+                    Configure your tenant&apos;s brand identity, logo, and contact details. These settings will be reflected on your public website and invoices.
                 </p>
             </div>
 
@@ -105,7 +126,6 @@ export default function GeneralSettingsPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-8 bg-white dark:bg-slate-800 p-8 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                {/* Branding Section */}
                 <div>
                     <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Brand Identity</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -114,7 +134,7 @@ export default function GeneralSettingsPage() {
                             <div className="mt-2 flex items-center gap-x-8">
                                 {settings.logo ? (
                                     <img
-                                        src={resolveLogo(settings.logo)}
+                                        src={resolveLogo(settings.logo) ?? ''}
                                         alt="Company Logo"
                                         className="h-24 w-auto object-contain bg-gray-50 p-2 rounded-lg border border-gray-200"
                                     />
@@ -169,7 +189,6 @@ export default function GeneralSettingsPage() {
 
                 <hr className="border-gray-200 dark:border-gray-700" />
 
-                {/* Contact Section */}
                 <div>
                     <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Contact Information</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

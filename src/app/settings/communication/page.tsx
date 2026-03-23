@@ -71,7 +71,7 @@ export default function CommunicationSettings() {
 
     const fetchSettings = async () => {
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://sef146.convrg.click/api/v1';
             const token = localStorage.getItem('token');
 
             const res = await axios.get(`${API_URL}/communication-settings`, {
@@ -91,7 +91,7 @@ export default function CommunicationSettings() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://sef146.convrg.click/api/v1';
             const token = localStorage.getItem('token');
 
             const res = await axios.post(`${API_URL}/communication-settings`, settings, {
@@ -112,7 +112,7 @@ export default function CommunicationSettings() {
     const testEmail = async () => {
         setTestingEmail(true);
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://sef146.convrg.click/v1';
             const token = localStorage.getItem('token');
 
             const res = await axios.post(`${API_URL}/communication-settings/test-email`, {
@@ -134,7 +134,7 @@ export default function CommunicationSettings() {
     const testSMS = async () => {
         setTestingSMS(true);
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://sef146.convrg.click/v1';
             const token = localStorage.getItem('token');
 
             const res = await axios.post(`${API_URL}/communication-settings/test-sms`, {
@@ -156,7 +156,7 @@ export default function CommunicationSettings() {
     const testWhatsApp = async () => {
         setTestingWhatsApp(true);
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://sef146.convrg.click/api/v1';
             const token = localStorage.getItem('token');
 
             const res = await axios.post(`${API_URL}/communication-settings/test-whatsapp`, {
