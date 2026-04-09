@@ -122,7 +122,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => {
         if (typeof window === 'undefined' || !user || user.role !== 'USER') return;
 
-        const handleAccountsChanged = (accounts: string[]) => {
+        const handleAccountsChanged = (...args: unknown[]) => {
+            const accounts = (args[0] as string[]) || [];
             if (accounts.length === 0) {
                 logout();
             } else {
