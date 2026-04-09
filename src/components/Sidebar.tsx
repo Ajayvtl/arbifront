@@ -136,7 +136,7 @@ export default function Sidebar() {
         const isChildActive = isChildActiveRecursive(item);
         const isActive = item.exact
             ? pathname === item.href
-            : (pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href) && !item.children));
+            : (pathname === item.href || (item.href && item.href !== '/' && pathname.startsWith(item.href) && !item.children));
 
         // Base padding + level indentation
         const paddingLeftClass = level === 0 ? 'px-4' : level === 1 ? 'pl-12 pr-4' : 'pl-20 pr-4';
@@ -185,8 +185,8 @@ export default function Sidebar() {
 
         return (
             <Link
-                key={item.href}
-                href={item.href}
+                key={item.href || item.name}
+                href={item.href || "#"}
                 title={sidebarCollapsed ? translateName(item.name) : ''}
                 className={`flex items-center gap-4 ${paddingLeftClass} py-3.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive
                     ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-900/20"
