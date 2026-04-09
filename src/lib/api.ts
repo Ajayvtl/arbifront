@@ -1,13 +1,30 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://sef146.convrg.click/api/v1',
-    headers: {
-        'Content-Type': 'application/json',
-    },
+    baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api',
 });
 
 api.interceptors.request.use((config) => {
+    const method = String(config.method || 'get').toLowerCase();
+    const resolvedUrl = (() => {
+        try {
+            return new URL(config.url || '', config.baseURL || undefined);
+        } catch {
+            return null;
+        }
+    })();
+
+    const hostname = resolvedUrl?.hostname || '';
+    const isLocaLtHost = hostname.endsWith('loca.lt');
+    const isTunnelHost =
+        isLocaLtHost ||
+        hostname.endsWith('ngrok.io') ||
+        hostname.endsWith('ngrok-free.app') ||
+        hostname.endsWith('trycloudflare.com');
+
+    const isPublicSettingsRequest =
+        method === 'get' && String(config.url || '').includes('/settings/public');
+
     // 1. Inject Token
     const token = localStorage.getItem('token');
     if (token) {
@@ -28,10 +45,22 @@ api.interceptors.request.use((config) => {
             console.error('Failed to parse currentHotel for header injection', e);
         }
     }
-    
-    // Explicitly signal system-scope requests when no active tenant is validly selected.
-    if (!isTenantContext) {
+
+    // Explicitly signal system-scope requests when no active tenant is selected.
+    // Keep GET requests "simple" to avoid unnecessary CORS preflight.
+    if (!isTenantContext && method !== 'get') {
         config.headers['x-app-scope'] = 'system';
+    }
+
+    // Tunnel reminder-bypass headers can force CORS preflight. Avoid them for
+    // simple/public GET endpoints and only add for tunneled non-GET requests.
+    if (isLocaLtHost) {
+        config.headers['Bypass-Tunnel-Reminder'] = 'true';
+    }
+
+    if (isTunnelHost && method !== 'get' && !isPublicSettingsRequest) {
+        config.headers['Bypass-Tunnel-Reminder'] = 'true';
+        config.headers['ngrok-skip-browser-warning'] = 'true';
     }
 
     return config;
@@ -40,9 +69,20 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            // Handle unauthorized access (e.g., token expired)
-            // But be careful not to trigger circular redirects
-            // window.location.href = '/login'; 
+            const isBrowser = typeof window !== 'undefined';
+            if (isBrowser) {
+                const path = window.location.pathname || '';
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                localStorage.removeItem('availableHotels');
+                localStorage.removeItem('currentHotel');
+
+                if (path.startsWith('/dapp')) {
+                    window.location.href = '/dapp/login';
+                } else if (path !== '/login') {
+                    window.location.href = '/login';
+                }
+            }
         }
         return Promise.reject(error);
     }

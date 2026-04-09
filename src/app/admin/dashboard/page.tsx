@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import UniversalDashboard from "@/components/dashboard/UniversalDashboard";
+import CompanyAdminDashboard from "@/components/dashboard/CompanyAdminDashboard";
 
 export default function SuperAdminDashboard() {
     const { user, isLoading } = useAuth();
@@ -16,6 +17,7 @@ export default function SuperAdminDashboard() {
     }, [user, isLoading, router]);
 
     if (isLoading) return <div>Loading...</div>;
+    if (user?.role === "COMPANY_ADMIN") return <CompanyAdminDashboard />;
 
     return <UniversalDashboard />;
 }

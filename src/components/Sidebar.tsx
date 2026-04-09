@@ -8,15 +8,14 @@ import { useTheme } from "@/context/ThemeContext";
 import { useSettings } from "@/context/SettingsContext";
 import { IconMap } from "@/lib/iconMapping";
 import { canViewModule, hasAnyPermission } from "@/lib/permissions";
-import { useEffect, useMemo, useState } from "react";
-import { AppMenuItem, SUPER_ADMIN_MENU, TENANT_MENU } from "@/lib/nav";
+import { useMemo, useState } from "react";
+import { AppMenuItem, SUPER_ADMIN_MENU, TENANT_MENU, MLM_END_USER_MENU, COMPANY_ADMIN_MENU } from "@/lib/nav";
 
 export default function Sidebar() {
     const pathname = usePathname();
     const { logout, user, availableHotels } = useAuth();
     const { sidebarCollapsed } = useTheme();
     const { settings, t } = useSettings();
-    const [menuItems, setMenuItems] = useState<AppMenuItem[]>([]);
     const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
 
     const toggleMenu = (name: string, currentState: boolean) => {
@@ -52,14 +51,14 @@ export default function Sidebar() {
     }, [user, simRole, simulationProfiles]);
 
     const effectiveWorkspace = useMemo(() => {
+        const userWithHotel = user as (typeof user & { hotel_id?: number }) | null;
         if (user?.role_id === 1 && simRole !== "off") {
             return simulationProfiles[simRole].workspace;
         }
-        return (user?.role_id === 1 || (!(user as any)?.hotel_id && availableHotels.length === 0)) ? "platform" : "tenant";
+        return (user?.role_id === 1 || (!userWithHotel?.hotel_id && availableHotels.length === 0)) ? "platform" : "tenant";
     }, [user, simRole, simulationProfiles, availableHotels]);
 
-    useEffect(() => {
-        // Helper: Check Visibility
+    const menuItems = useMemo(() => {
         const isVisible = (item: AppMenuItem) => {
             if (effectiveUser?.role_id === 1) return true; // Super Admin sees all
 
@@ -83,7 +82,7 @@ export default function Sidebar() {
             return false;
         };
 
-        const filterMenu = (menu: AppMenuItem[]) => {
+        const filterMenu = (menu: AppMenuItem[]): AppMenuItem[] => {
             return menu.reduce((acc: AppMenuItem[], item: AppMenuItem) => {
                 if (isVisible(item)) {
                     const newItem = { ...item };
@@ -99,20 +98,23 @@ export default function Sidebar() {
             }, []);
         };
 
-        if (effectiveWorkspace === "platform") {
-            // System Context
-            setMenuItems(filterMenu(SUPER_ADMIN_MENU));
-        } else {
-            // Hotel Context
-            setMenuItems(filterMenu(TENANT_MENU));
-        }
+        if (effectiveUser?.role === "USER") return filterMenu(MLM_END_USER_MENU);
+        if (effectiveUser?.role === "COMPANY_ADMIN") return filterMenu(COMPANY_ADMIN_MENU);
+        if (effectiveWorkspace === "platform") return filterMenu(SUPER_ADMIN_MENU);
+        return filterMenu(TENANT_MENU);
     }, [effectiveUser, effectiveWorkspace]);
 
     const settingsItems = [
         { name: "General", href: "/admin/settings/general", icon: "Settings", perm: "settings.view" },
         { name: "Departments", href: "/admin/settings/departments", icon: "Users", perm: "departments.view" },
         { name: "Notifications", href: "/admin/settings/notifications", icon: "Activity", perm: "notifications.view" },
-    ].filter(item => effectiveUser?.role_id === 1 || (item.perm ? hasAnyPermission(effectiveUser, [item.perm, `menu.${item.perm.split('.')[0]}`]) : true));
+    ].filter(item => {
+        if (effectiveUser?.role === "USER") return false;
+        if (effectiveUser?.role === "COMPANY_ADMIN") return false;
+        // Keep super admin sidebar focused: dedicated platform menu already has required entries.
+        if (effectiveUser?.role_id === 1) return false;
+        return item.perm ? hasAnyPermission(effectiveUser, [item.perm, `menu.${item.perm.split('.')[0]}`]) : true;
+    });
 
     const translateName = (name: string) => {
         if (!name) return "";
@@ -120,12 +122,12 @@ export default function Sidebar() {
         return t(key) !== key ? t(key) : name;
     };
 
-    const renderMenuItem = (item: any, level: number = 0) => {
+    const renderMenuItem = (item: AppMenuItem, level: number = 0) => {
         // Check if any child is active (recursive)
-        const isChildActiveRecursive = (currentItem: any): boolean => {
+        const isChildActiveRecursive = (currentItem: AppMenuItem): boolean => {
             if (currentItem.children) {
-                return currentItem.children.some((child: any) =>
-                    pathname.startsWith(child.href) || isChildActiveRecursive(child)
+                return currentItem.children.some((child: AppMenuItem) =>
+                    (child.href ? pathname.startsWith(child.href) : false) || isChildActiveRecursive(child)
                 );
             }
             return false;
@@ -174,7 +176,7 @@ export default function Sidebar() {
 
                     {!sidebarCollapsed && isExpanded && (
                         <div className="space-y-1 animate-in fade-in duration-200 slide-in-from-top-2">
-                            {item.children.map((child: any) => renderMenuItem(child, level + 1))}
+                            {item.children.map((child: AppMenuItem) => renderMenuItem(child, level + 1))}
                         </div>
                     )}
                 </div>
@@ -264,7 +266,7 @@ export default function Sidebar() {
                         </div>
                     )}
                     {!sidebarCollapsed && <p className="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">{t('settings')}</p>}
-                    {settingsItems.map((item) => renderMenuItem(item as any))}
+                    {settingsItems.map((item) => renderMenuItem(item))}
                 </div>
             </nav>
 

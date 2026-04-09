@@ -9,11 +9,17 @@ export interface User {
     name: string;
     email: string;
     role_id: number;
+    role?: string;
+    company_id?: number | null;
     role_name?: string;
     avatar?: string;
     phone?: string;
     is_active?: boolean;
     permissions?: string[];
+    walletAddress?: string;
+    wallet_address?: string;
+    referral_code?: string;
+    wallet_usdt_bnb?: string;
 }
 
 export interface Hotel {
@@ -35,31 +41,119 @@ interface AuthContextType {
     isLoading: boolean;
 }
 
+interface EthereumEventProvider {
+    on?: (event: string, handler: (...args: unknown[]) => void) => void;
+    removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function decodeJwtPayload(token: string): { exp?: number } | null {
+    try {
+        const parts = token.split('.');
+        if (parts.length < 2) return null;
+        const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+        const json = atob(padded);
+        return JSON.parse(json);
+    } catch {
+        return null;
+    }
+}
+
+function isTokenExpired(token: string | null): boolean {
+    if (!token) return true;
+    const payload = decodeJwtPayload(token);
+    if (!payload?.exp) return false;
+    const nowSec = Math.floor(Date.now() / 1000);
+    return payload.exp <= nowSec;
+}
+
+function parseStoredJson<T>(value: string | null, fallback: T): T {
+    if (!value) return fallback;
+    try {
+        return JSON.parse(value) as T;
+    } catch {
+        return fallback;
+    }
+}
+
+function readInitialSession() {
+    if (typeof window === 'undefined') {
+        return {
+            token: null as string | null,
+            user: null as User | null,
+            hotels: [] as Hotel[],
+            currentHotel: null as Hotel | null,
+        };
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token || isTokenExpired(token)) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('availableHotels');
+        localStorage.removeItem('currentHotel');
+        return {
+            token: null as string | null,
+            user: null as User | null,
+            hotels: [] as Hotel[],
+            currentHotel: null as Hotel | null,
+        };
+    }
+
+    return {
+        token,
+        user: parseStoredJson<User | null>(localStorage.getItem('user'), null),
+        hotels: parseStoredJson<Hotel[]>(localStorage.getItem('availableHotels'), []),
+        currentHotel: parseStoredJson<Hotel | null>(localStorage.getItem('currentHotel'), null),
+    };
+}
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [token, setToken] = useState<string | null>(null);
-    const [availableHotels, setAvailableHotels] = useState<Hotel[]>([]);
-    const [currentHotel, setCurrentHotel] = useState<Hotel | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [session] = useState(() => readInitialSession());
+    const [user, setUser] = useState<User | null>(session.user);
+    const [token, setToken] = useState<string | null>(session.token);
+    const [availableHotels, setAvailableHotels] = useState<Hotel[]>(session.hotels);
+    const [currentHotel, setCurrentHotel] = useState<Hotel | null>(session.currentHotel);
+    const [isLoading] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
-        // Hydrate from Storage
-        const storedToken = localStorage.getItem('token');
-        const storedUser = localStorage.getItem('user');
-        const storedHotels = localStorage.getItem('availableHotels');
-        const storedCurrentHotel = localStorage.getItem('currentHotel');
+        if (typeof window === 'undefined' || !user || user.role !== 'USER') return;
 
-        if (storedToken && storedUser) {
-            setToken(storedToken);
-            setUser(JSON.parse(storedUser));
-            if (storedHotels) setAvailableHotels(JSON.parse(storedHotels));
-            if (storedCurrentHotel) setCurrentHotel(JSON.parse(storedCurrentHotel));
+        const handleAccountsChanged = (accounts: string[]) => {
+            if (accounts.length === 0) {
+                logout();
+            } else {
+                const connectedAddress = accounts[0].toLowerCase();
+                const userAddress = (user.walletAddress || user.wallet_address || '').toLowerCase();
+                if (userAddress && connectedAddress !== userAddress) {
+                    logout();
+                    toast.error("Wallet account changed. Please log in again.");
+                }
+            }
+        };
+
+        const handleDisconnect = () => {
+            logout();
+            toast.error("Wallet disconnected.");
+        };
+
+        const eth = (window as Window & { ethereum?: EthereumEventProvider }).ethereum;
+        if (eth?.on) {
+            eth.on('accountsChanged', handleAccountsChanged);
+            eth.on('disconnect', handleDisconnect);
         }
-        setIsLoading(false);
-    }, []);
+
+        return () => {
+            if (eth?.removeListener) {
+                eth.removeListener('accountsChanged', handleAccountsChanged);
+                eth.removeListener('disconnect', handleDisconnect);
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user]);
 
     const login = (newToken: string, newUser: User, hotels: Hotel[], permissions: string[] = []) => {
         setToken(newToken);
@@ -72,8 +166,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         localStorage.setItem('user', JSON.stringify(userWithPermissions));
         localStorage.setItem('availableHotels', JSON.stringify(hotels));
 
+        if (newUser.role === 'USER') {
+            setCurrentHotel(null);
+            localStorage.removeItem('currentHotel');
+            const pendingRedirect = typeof window !== 'undefined' ? sessionStorage.getItem('postLoginRedirect') : null;
+            if (typeof window !== 'undefined') {
+                sessionStorage.removeItem('postLoginRedirect');
+            }
+            const targetRoute = pendingRedirect && pendingRedirect.startsWith('/dapp/')
+                ? pendingRedirect
+                : '/dapp/dashboard';
+            router.push(targetRoute);
+            toast.success(`Welcome ${newUser.name || 'User'}`);
+            return;
+        }
+
         // Logic: Redirect based on Hotel Availability
-        if (newUser.role_id === 1) { // Super Admin
+        if (newUser.role_id === 1 || newUser.role === 'SUPER_ADMIN') { // Super Admin
             setCurrentHotel(null);
             localStorage.removeItem('currentHotel');
             router.push('/admin/dashboard');
@@ -110,6 +219,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const logout = () => {
+        const isEndUser = user?.role === 'USER';
         setToken(null);
         setUser(null);
         setAvailableHotels([]);
@@ -121,7 +231,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         localStorage.removeItem('currentHotel');
 
         toast.success('Logged out successfully');
-        router.push('/login');
+        router.push(isEndUser ? '/dapp/login' : '/login');
     };
 
     return (

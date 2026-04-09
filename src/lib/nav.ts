@@ -12,141 +12,52 @@ export interface AppMenuItem {
     children?: AppMenuItem[];
 }
 
-// Super Admin Menu (sectioned to avoid cross-domain clutter)
+// Super Admin menu trimmed to core platform controls only.
 export const SUPER_ADMIN_MENU: AppMenuItem[] = [
     { section: "Platform", name: "Dashboard", href: "/admin/dashboard", icon: "LayoutDashboard" },
-    { section: "Platform", name: "Branch", href: "/admin/hotels", icon: "BuildingOffice2Icon", module: "hotels" },
-    { section: "Platform", name: "Agencies & Partners", href: "/admin/agents", icon: "UserGroupIcon", module: "agencies" },
+    { section: "Platform", name: "Companies", href: "/admin/hotels", icon: "BuildingOffice2Icon", module: "hotels" },
+    { section: "Platform", name: "Admin Access", href: "/admin/platform-admins", icon: "Shield", module: "users" },
     { section: "Platform", name: "System Users", href: "/admin/users", icon: "Users", module: "users" },
-    {
-        section: "Platform",
-        name: "HR & Staff (System)",
-        href: "/hr",
-        icon: "Users",
-        module: "hr",
-        children: [
-            { name: "My Profile", href: "/admin/hr/my-profile", permissions: ["hr.view", "hr.manage", "hr.manage_staff"] },
-            { name: "Reports", href: "/admin/hr/reports", permissions: ["reports.view", "hr.manage", "hr.manage_staff"] },
-            {
-                name: "Org Workflow",
-                href: "/admin/hr/org-workflow",
-                permissions: ["roles.manage", "hr.manage", "hr.manage_staff", "hr.view"],
-                children: [
-                    { name: "Approval Inbox", href: "/admin/hr/org-workflow/inbox", permissions: ["hr.view", "hr.manage", "hr.manage_staff"] },
-                    { name: "My Requests", href: "/admin/hr/org-workflow/requests", permissions: ["hr.view", "hr.manage", "hr.manage_staff"] },
-                    { name: "Designer", href: "/admin/hr/org-workflow", exact: true, permissions: ["roles.manage", "hr.manage", "hr.manage_staff"] }
-                ]
-            },
-            { name: "Attendance Insights", href: "/admin/hr/attendance-insights", permissions: ["attendance.summary", "attendance.manage", "hr.manage"] },
-            { name: "Attendance", href: "/admin/hr/attendance", permissions: ["attendance.view", "attendance.manage", "hr.view", "hr.manage"] },
-            { name: "Leave Requests", href: "/admin/hr/leaves", permissions: ["hr.view", "hr.manage", "hr.manage_staff"] },
-            { name: "Work Allotment", href: "/admin/hr/tasks", permissions: ["tasks.view", "tasks.manage", "hr.view", "hr.manage"] },
-            { name: "Employee Status", href: "/admin/hr/employee-status", permissions: ["employee_status.view", "employee_status.manage", "hr.manage", "hr.manage_staff"] },
-            { name: "Warnings", href: "/admin/hr/warnings", permissions: ["warnings.view", "warnings.manage", "hr.manage", "hr.manage_staff"] },
-            { name: "Payroll Sync", href: "/admin/hr/payroll-sync", permissions: ["payroll.sync", "hr.payroll", "hr.manage"] },
-            { name: "Payroll", href: "/admin/hr/payroll", permissions: ["payroll.view", "payroll.manage", "hr.payroll", "hr.manage"] },
-            { name: "Salary Structure", href: "/admin/hr/salary-structures", permissions: ["salary_structure.view", "salary_structure.manage", "hr.payroll", "hr.manage"] },
-            { name: "Contracts", href: "/admin/hr/contracts", permissions: ["hr.view", "hr.manage"] },
-            { name: "Staff Profiles", href: "/admin/hr/employees", permissions: ["hr.view", "hr.manage", "hr.manage_staff"] },
-            { name: "HR Policies", href: "/admin/hr/policies", permissions: ["hr.policies.view", "hr.policies.manage", "hr.manage"] },
-            { name: "Shift Management", href: "/admin/hr/shifts", permissions: ["shifts.view", "shifts.manage", "hr.manage", "hr.manage_staff"] },
-            { name: "Job Positions", href: "/admin/hr/positions", permissions: ["hr.view", "hr.manage"] },
-            { name: "Departments", href: "/admin/settings/departments", permissions: ["departments.view", "hr.manage"] }
-        ]
-    },
-    {
-        section: "Access & Security",
-        name: "Modules Roles",
-        href: "/settings/roles",
-        icon: "Shield",
-        module: "roles",
-        children: [
-            { name: "All Roles", href: "/settings/roles", exact: true, permissions: ["roles.view", "roles.manage"] },
-            { name: "Add Role", href: "/settings/roles/create", permissions: ["roles.manage"] },
-            { name: "Role Templates", href: "/settings/roles/templates", permissions: ["roles.manage"] }
-        ]
-    },
-    {
-        section: "Catalog & Provisioning",
-        name: "Products",
-        href: "/admin/products",
-        icon: "CircleStackIcon",
-        module: "settings",
-        children: [
-            { name: "Tenant (All)", href: "/admin/products/tenants", permissions: ["packages.view", "packages.manage", "menu.packages"] },
-            { name: "Categories", href: "/admin/settings/categories", permissions: ["settings.view.global", "settings.manage"] },
-            { name: "Locations", href: "/admin/products/locations", permissions: ["locations.add.global", "locations.edit.global", "locations.delete.global"] },
-            { name: "Modules", href: "/admin/products/modules", permissions: ["settings.manage", "roles.manage"] },
-            { name: "Packages", href: "/admin/products/packages", permissions: ["packages.view", "packages.manage"] },
-            {
-                name: "Product Roles",
-                href: "/admin/products/roles",
-                children: [
-                    { name: "All Roles", href: "/admin/products/roles", exact: true },
-                    { name: "Add Role", href: "/admin/products/roles/create" }
-                ]
-            },
-            { name: "Pkg DB", href: "/admin/products/pkg-databases", permissions: ["database.view", "database.manage", "database.test", "database.export", "database.import"] },
-            { name: "Mid DB", href: "/admin/settings/databases", permissions: ["database.view", "database.manage", "settings.view.global"] },
-            { name: "Template DB", href: "/admin/products/template-databases", permissions: ["template_db.view", "template_db.manage"] },
-            { name: "Template Studio", href: "/admin/products/template-studio", permissions: ["template_version.view", "template_version.manage", "template_version.publish", "template_version.history"] },
-            { name: "Module Lifecycle", href: "/admin/products/module-lifecycle", permissions: ["settings.manage", "roles.manage"] }
-        ]
-    },
-    {
-        section: "Finance",
-        name: "Finance (Platform)",
-        href: "/finance/platform",
-        icon: "FileText",
-        module: "finance_system",
-        children: [
-            { name: "Dashboard", href: "/finance/platform", permissions: ["finance_system.view", "finance_system.manage"] },
-            { name: "Invoices", href: "/finance/platform/invoices", permissions: ["finance_system.view", "finance_system.manage"] },
-            { name: "Renewals", href: "/finance/platform/renewals", permissions: ["finance_system.view", "finance_system.manage"] },
-            { name: "Templates", href: "/finance/platform/templates", permissions: ["finance_system.view", "finance_system.manage"] }
-        ]
-    },
-    { section: "Finance", name: "Accounting (SaaS)", href: "/accounting", icon: "Calculator", module: "accounting" },
-    { section: "Operations", name: "Reports & Analytics", href: "/reports", icon: "BarChart3", module: "reports" },
-    {
-        section: "Operations",
-        name: "Global Settings",
-        href: "/admin/settings",
-        icon: "GlobeAltIcon",
-        module: "settings",
-        children: [
-            { name: "Company Profile", href: "/admin/settings/company" },
-            { name: "Roles & Permissions", href: "/admin/settings/roles" },
-            { name: "General Settings", href: "/admin/settings/general" }
-        ]
-    },
-    {
-        section: "Operations",
-        name: "Maintenance",
-        href: "/admin/maintenance",
-        icon: "Shield",
-        module: "admin_maintenance",
-        children: [
-            { name: "Pages", href: "/admin/maintenance/pages" },
-            { name: "Backup (Main)", href: "/admin/maintenance/backup" },
-            { name: "Product Databases", href: "/admin/maintenance/product-db-backup" },
-            { name: "Security Audit", href: "/admin/maintenance/security-audit", permissions: ["audit.view"] }
-        ]
-    },
-    { section: "Access & Security", name: "Guest Shield", href: "/admin/compliance", icon: "Shield", module: "compliance" },
-    { section: "Access & Security", name: "Audit Logs", href: "/admin/audit", icon: "FileText", module: "audit" },
-    {
-        section: "Operations",
-        name: "Developer",
-        href: "/admin/developer",
-        icon: "FlaskConical",
-        module: "developer",
-        children: [
-            { name: "API", href: "/admin/developer/api" },
-            { name: "Operations", href: "/admin/developer/operations" },
-            { name: "Documentation", href: "/admin/developer/documentation" }
-        ]
-    }
+    { section: "Finance", name: "Finance (Platform)", href: "/finance/platform", icon: "FileText", module: "finance_system" },
+    { section: "Monitoring", name: "Blockchain Events", href: "/admin/developer/operations", icon: "Activity", module: "developer" },
+    { section: "System", name: "Global Settings", href: "/admin/settings/general", icon: "GlobeAltIcon", module: "settings" }
+];
+
+// MLM End User (Distributor) Menu
+export const MLM_END_USER_MENU: AppMenuItem[] = [
+    { section: "Overview", name: "Dashboard", href: "/dapp/dashboard", icon: "LayoutDashboard" },
+    { section: "Overview", name: "Transactions", href: "/dapp/transactions", icon: "Wallet" },
+    { section: "Overview", name: "ROI Tracker", href: "/dapp/roi", icon: "BarChart3" },
+    { section: "Overview", name: "My Network", href: "/dapp/network", icon: "Users" },
+    { section: "Overview", name: "Genealogy Tree", href: "/dapp/genealogy", icon: "Activity" },
+    { section: "Earnings", name: "Commissions", href: "/dapp/commissions", icon: "FileText" },
+    { section: "Earnings", name: "E-Wallet", href: "/dapp/wallet", icon: "Calculator" },
+    { section: "Earnings", name: "Payout Requests", href: "/dapp/payouts", icon: "ShoppingCart" },
+    { section: "Business", name: "Packages", href: "/dapp/packages", icon: "ShoppingBag" },
+    { section: "Business", name: "Referrals", href: "/dapp/referrals", icon: "Users" },
+    { section: "Business", name: "Ranks & Rewards", href: "/dapp/ranks", icon: "Shield" },
+    { section: "Support", name: "Support Tickets", href: "/dapp/support", icon: "MessageSquare" },
+    { section: "Support", name: "Profile & KYC", href: "/dapp/profile", icon: "UserCircle" },
+    { section: "Support", name: "Notifications", href: "/dapp/notifications", icon: "Bell" },
+];
+
+// MLM Company Admin (Tenant Company) Menu
+export const COMPANY_ADMIN_MENU: AppMenuItem[] = [
+    { section: "Overview", name: "Command Center", href: "/admin/dashboard", icon: "LayoutDashboard" },
+    { section: "Network Operations", name: "Member Registry", href: "/admin/company/members", icon: "Users" },
+    { section: "Compensation", name: "Commission Runs", href: "/admin/company/commissions", icon: "Calculator" },
+    { section: "Compensation", name: "Direct Income", href: "/admin/company/direct-income", icon: "Wallet" },
+    { section: "Compensation", name: "ROI Increment (Working)", href: "/admin/company/working-gain", icon: "BarChart3" },
+    { section: "Compensation", name: "Level Income", href: "/admin/company/level-income", icon: "GitBranch" },
+    { section: "Compensation", name: "Payment Logs", href: "/admin/company/transactions", icon: "Wallet" },
+    { section: "Compensation", name: "Payout Queue", href: "/admin/company/payouts", icon: "FileText" },
+    { section: "Compensation", name: "E-Wallet Ledger", href: "/admin/company/ledger", icon: "CircleStackIcon" },
+    { section: "Compensation", name: "Bonus Campaigns", href: "/admin/company/bonuses", icon: "Tag" },
+    { section: "Growth", name: "Plan Catalog", href: "/admin/company/plans", icon: "ShoppingBag" },
+    { section: "Growth", name: "Payment Channels", href: "/admin/company/payments", icon: "CreditCard" },
+    { section: "Configuration", name: "Network Settings", href: "/admin/company/network-settings", icon: "Activity" },
+    { section: "Configuration", name: "Testing Tools", href: "/admin/company/testing", icon: "FlaskConical" },
+    { section: "Configuration", name: "Company Settings", href: "/admin/settings/general", icon: "Settings" },
 ];
 
 // HMIS Menu Structure (for Tenant Admins/Staff)

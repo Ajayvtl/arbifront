@@ -419,8 +419,8 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
     const [settings, setSettings] = useState({
-        site_name: 'Pathology Management',
-        brand_name: 'Lab Admin',
+        site_name: 'Company Platform',
+        brand_name: 'Company DApp',
         logo: '',
         contact_email: '',
         contact_phone: '',
@@ -445,7 +445,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
                 }));
             }
         } catch (error) {
-            console.error("Failed to load global settings", error);
+            console.warn("Failed to load global settings", error);
         } finally {
             setLoading(false);
         }
