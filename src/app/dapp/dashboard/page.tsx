@@ -10,6 +10,7 @@ import api from "@/lib/api";
 import { formatPercent, formatTokenAmount } from "@/lib/numberFormat";
 import DappWalletChip from "@/components/dapp/DappWalletChip";
 import BrandLogo from "@/components/dapp/BrandLogo";
+import { getWalletTypeLabels } from "@/lib/walletTypeLabels";
 
 interface PlanItem {
   id: number;
@@ -54,6 +55,7 @@ interface ProfileSummary {
   mlmSettings?: {
     roi_credit_time_utc?: string;
     roi_credit_enabled?: number;
+    wallet_type_labels?: Partial<Record<string, unknown>> | null;
   } | null;
   wallet?: {
     mainBalance: number;
@@ -145,6 +147,10 @@ export default function DappDashboardPage() {
     if (!referralLink) return "";
     return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(referralLink)}`;
   }, [referralLink]);
+  const walletTypeLabels = useMemo(
+    () => getWalletTypeLabels(profile?.mlmSettings?.wallet_type_labels || null),
+    [profile?.mlmSettings?.wallet_type_labels]
+  );
 
   const loadData = useCallback(async (showErrors = true) => {
     setLoading(true);
@@ -309,36 +315,36 @@ export default function DappDashboardPage() {
                 <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.metrics?.totalEarnings || 0)}</p>
               </div>
               <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Earning</p>
+                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.earning_balance}</p>
                 <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.earningBalance || 0)}</p>
               </div>
               <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Daily Income</p>
+                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.roi_balance}</p>
                 <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.roiBalance || 0)}</p>
                 <p className="mt-1 text-[11px] text-[#848e9c]">
                   {profile?.mlmSettings?.roi_credit_enabled
                     ? `Time-based credit at ${profile?.mlmSettings?.roi_credit_time_utc || "00:00"} UTC`
-                    : "Daily Income credit is currently disabled"}
+                    : `${walletTypeLabels.roi_balance} credit is currently disabled`}
                 </p>
               </div>
               <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Working Balance</p>
+                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.direct_balance}</p>
                 <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.directBalance || 0)}</p>
               </div>
               <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Reward</p>
+                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.reward_balance}</p>
                 <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.rewardBalance || 0)}</p>
               </div>
               <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Level Balance</p>
+                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.level_balance}</p>
                 <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.levelBalance || 0)}</p>
               </div>
               <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Withdrawable</p>
+                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.withdrawable_balance}</p>
                 <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.withdrawableBalance || 0)}</p>
               </div>
               <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Locked Balance</p>
+                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.locked_balance}</p>
                 <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.lockedBalance || 0)}</p>
               </div>
             </div>

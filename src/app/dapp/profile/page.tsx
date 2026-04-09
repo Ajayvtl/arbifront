@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { DAPP_CHAIN } from "@/lib/dappConfig";
 import { formatPercent, formatTokenAmount } from "@/lib/numberFormat";
 import DappWalletChip from "@/components/dapp/DappWalletChip";
+import { getWalletTypeLabels } from "@/lib/walletTypeLabels";
 
 type UserProfile = {
   actorType: "USER";
@@ -24,6 +25,7 @@ type UserProfile = {
   mlmSettings?: {
     roi_credit_time_utc?: string;
     roi_credit_enabled?: number;
+    wallet_type_labels?: Partial<Record<string, unknown>> | null;
   } | null;
   wallet?: {
     mainBalance: number;
@@ -99,6 +101,10 @@ export default function DappProfilePage() {
     if (!referralLink) return "";
     return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(referralLink)}`;
   }, [referralLink]);
+  const walletTypeLabels = useMemo(
+    () => getWalletTypeLabels(profile?.mlmSettings?.wallet_type_labels || null),
+    [profile?.mlmSettings?.wallet_type_labels]
+  );
 
   useEffect(() => {
     if (!user) {
@@ -242,36 +248,36 @@ export default function DappProfilePage() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-4">
-            <p className="text-xs text-[#848e9c]">Main Balance</p>
+            <p className="text-xs text-[#848e9c]">{walletTypeLabels.main_balance}</p>
             <p className="text-xl font-semibold text-[#f5f5f5]">{formatNum(profile.wallet?.mainBalance)}</p>
           </div>
           <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-4">
-            <p className="text-xs text-[#848e9c]">Earning Balance</p>
+            <p className="text-xs text-[#848e9c]">{walletTypeLabels.earning_balance}</p>
             <p className="text-xl font-semibold text-[#f5f5f5]">{formatNum(profile.wallet?.earningBalance)}</p>
           </div>
           <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-4">
-            <p className="text-xs text-[#848e9c]">Daily Income</p>
+            <p className="text-xs text-[#848e9c]">{walletTypeLabels.roi_balance}</p>
             <p className="text-xl font-semibold text-[#f5f5f5]">{formatNum(profile.wallet?.roiBalance)}</p>
             <p className="mt-1 text-[11px] text-[#848e9c]">
               {profile?.mlmSettings?.roi_credit_enabled
                 ? `Posted on schedule at ${profile?.mlmSettings?.roi_credit_time_utc || "00:00"} UTC`
-                : "Daily Income credit is currently disabled"}
+                : `${walletTypeLabels.roi_balance} credit is currently disabled`}
             </p>
           </div>
           <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-4">
-            <p className="text-xs text-[#848e9c]">Working Balance</p>
+            <p className="text-xs text-[#848e9c]">{walletTypeLabels.direct_balance}</p>
             <p className="text-xl font-semibold text-[#f5f5f5]">{formatNum(profile.wallet?.directBalance)}</p>
           </div>
           <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-4">
-            <p className="text-xs text-[#848e9c]">Level Balance</p>
+            <p className="text-xs text-[#848e9c]">{walletTypeLabels.level_balance}</p>
             <p className="text-xl font-semibold text-[#f5f5f5]">{formatNum(profile.wallet?.levelBalance)}</p>
           </div>
           <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-4">
-            <p className="text-xs text-[#848e9c]">Withdrawable</p>
+            <p className="text-xs text-[#848e9c]">{walletTypeLabels.withdrawable_balance}</p>
             <p className="text-xl font-semibold text-[#f5f5f5]">{formatNum(profile.wallet?.withdrawableBalance)}</p>
           </div>
           <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-4">
-            <p className="text-xs text-[#848e9c]">Reward Balance</p>
+            <p className="text-xs text-[#848e9c]">{walletTypeLabels.reward_balance}</p>
             <p className="text-xl font-semibold text-[#f5f5f5]">{formatNum(profile.wallet?.rewardBalance)}</p>
           </div>
           <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-4">

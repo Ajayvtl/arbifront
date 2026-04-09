@@ -4,8 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { BadgeDollarSign, CalendarDays, ChevronLeft, ChevronRight, Filter, Loader2, Minus, Network, Plus, Search, Users } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { getWalletTypeLabel } from "@/lib/walletTypeLabels";
 
 type SessionProfile = {
+  mlmSettings?: {
+    wallet_type_labels?: Partial<Record<string, unknown>> | null;
+  } | null;
   metrics?: {
     directReferrals?: number;
     teamCount?: number;
@@ -74,19 +78,8 @@ function formatDateTime(value?: string) {
   }).format(date);
 }
 
-function balanceLabel(value?: string | null) {
-  switch (String(value || "").toLowerCase()) {
-    case "direct_balance":
-      return "Working Balance";
-    case "level_balance":
-      return "Level Balance";
-    case "roi_balance":
-      return "Daily Income";
-    case "reward_balance":
-      return "Reward Balance";
-    default:
-      return value || "-";
-  }
+function balanceLabel(value: string | null | undefined, walletLabels?: Partial<Record<string, unknown>> | null) {
+  return getWalletTypeLabel(value, walletLabels);
 }
 
 export default function DappNetworkPage() {
@@ -403,7 +396,7 @@ export default function DappNetworkPage() {
                           <td className="px-4 py-4">{shortAddress(row.source_wallet)}</td>
                           <td className="px-4 py-4">{formatAmount(row.amount_paid)} {row.token_symbol || ""}</td>
                           <td className="px-4 py-4 font-semibold text-white">{formatAmount(row.received_amount)}</td>
-                          <td className="px-4 py-4">{balanceLabel(row.credited_balance)}</td>
+                          <td className="px-4 py-4">{balanceLabel(row.credited_balance, profile?.mlmSettings?.wallet_type_labels || null)}</td>
                           <td className="px-4 py-4">{row.rule_name || "Direct Income"}</td>
                         </tr>
                       ))
@@ -450,7 +443,7 @@ export default function DappNetworkPage() {
                         </div>
                         <div>
                           <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Credited To</p>
-                          <p className="mt-1 text-sm font-medium text-[#dce8f5]">{balanceLabel(row.credited_balance)}</p>
+                          <p className="mt-1 text-sm font-medium text-[#dce8f5]">{balanceLabel(row.credited_balance, profile?.mlmSettings?.wallet_type_labels || null)}</p>
                         </div>
                       </div>
                       {expandedDirectRows.includes(row.id) ? (
@@ -516,7 +509,7 @@ export default function DappNetworkPage() {
                           <td className="px-4 py-4">{shortAddress(row.source_wallet)}</td>
                           <td className="px-4 py-4">{formatAmount(row.package_amount)} {row.token_symbol || ""}</td>
                           <td className="px-4 py-4 font-semibold text-white">{formatAmount(row.received_amount)}</td>
-                          <td className="px-4 py-4">{balanceLabel(row.credited_balance)}</td>
+                          <td className="px-4 py-4">{balanceLabel(row.credited_balance, profile?.mlmSettings?.wallet_type_labels || null)}</td>
                         </tr>
                       ))
                     ) : (
@@ -562,7 +555,7 @@ export default function DappNetworkPage() {
                         </div>
                         <div>
                           <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Credited To</p>
-                          <p className="mt-1 text-sm font-medium text-[#dce8f5]">{balanceLabel(row.credited_balance)}</p>
+                          <p className="mt-1 text-sm font-medium text-[#dce8f5]">{balanceLabel(row.credited_balance, profile?.mlmSettings?.wallet_type_labels || null)}</p>
                         </div>
                       </div>
                       {expandedLevelRows.includes(`${row.id}-${row.level || 0}`) ? (

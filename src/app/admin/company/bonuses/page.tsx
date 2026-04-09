@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Clock3, Loader2, Save, Settings2, Zap } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { getWalletTypeLabels, WALLET_TYPE_KEYS } from "@/lib/walletTypeLabels";
 
 type MlmSettings = {
   roi_credit_time_utc: string;
@@ -36,6 +37,7 @@ type MlmSettings = {
   working_gain_boosted_cap_multiplier: number;
   direct_income_rules?: DirectIncomeRule[];
   working_gain_rules?: WorkingGainRule[];
+  wallet_type_labels?: Partial<Record<string, unknown>> | null;
 };
 
 type DirectIncomeRule = {
@@ -165,6 +167,10 @@ export default function CompanyBonusesPage() {
     if (!firstRule) return 0;
     return (Number(firstRule.minAmount || 0) * Number(firstRule.percent || 0)) / 100;
   }, [form.direct_income_rules]);
+  const walletTypeLabels = useMemo(
+    () => getWalletTypeLabels(form.wallet_type_labels || null),
+    [form.wallet_type_labels]
+  );
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -350,12 +356,9 @@ export default function CompanyBonusesPage() {
                           onChange={(e) => setForm((prev) => ({ ...prev, direct_income_rules: (prev.direct_income_rules || []).map((item, itemIndex) => itemIndex === index ? { ...item, balanceType: e.target.value } : item) }))}
                           className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
                         >
-                          <option value="direct_balance">Working Balance</option>
-                          <option value="earning_balance">Earning Balance</option>
-                          <option value="withdrawable_balance">Withdrawable Balance</option>
-                          <option value="main_balance">Main Balance</option>
-                          <option value="reward_balance">Reward Balance</option>
-                          <option value="roi_balance">Daily Income</option>
+                          {WALLET_TYPE_KEYS.map((walletKey) => (
+                            <option key={walletKey} value={walletKey}>{walletTypeLabels[walletKey]}</option>
+                          ))}
                         </select>
                       </label>
                       <div className="space-y-2">
@@ -534,12 +537,9 @@ export default function CompanyBonusesPage() {
                     onChange={(e) => setForm((prev) => ({ ...prev, joining_bonus_balance_type: e.target.value }))}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
                   >
-                    <option value="direct_balance">Working Balance</option>
-                    <option value="earning_balance">Earning Balance</option>
-                    <option value="withdrawable_balance">Withdrawable Balance</option>
-                    <option value="main_balance">Main Balance</option>
-                    <option value="reward_balance">Reward Balance</option>
-                    <option value="roi_balance">Daily Income</option>
+                    {WALLET_TYPE_KEYS.map((walletKey) => (
+                      <option key={walletKey} value={walletKey}>{walletTypeLabels[walletKey]}</option>
+                    ))}
                   </select>
                 </label>
                 <label className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4 md:col-span-2 dark:border-slate-800 dark:bg-slate-900/60">
@@ -639,12 +639,9 @@ export default function CompanyBonusesPage() {
                     onChange={(e) => setForm((prev) => ({ ...prev, fast_start_bonus_balance_type: e.target.value }))}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
                   >
-                    <option value="direct_balance">Working Balance</option>
-                    <option value="roi_balance">Daily Income</option>
-                    <option value="earning_balance">Earning Balance</option>
-                    <option value="reward_balance">Reward Balance</option>
-                    <option value="withdrawable_balance">Withdrawable Balance</option>
-                    <option value="main_balance">Main Balance</option>
+                    {WALLET_TYPE_KEYS.map((walletKey) => (
+                      <option key={walletKey} value={walletKey}>{walletTypeLabels[walletKey]}</option>
+                    ))}
                   </select>
                 </label>
                 <label className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4 md:col-span-2 dark:border-slate-800 dark:bg-slate-900/60">

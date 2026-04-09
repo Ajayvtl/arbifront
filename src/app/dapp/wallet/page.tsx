@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
 import { fetchWallet, fetchWalletTransactions } from "@/lib/mlmWalletApi";
 import api from "@/lib/api";
+import { getWalletTypeLabels, WalletTypeKey } from "@/lib/walletTypeLabels";
 
 type WalletSnapshot = {
   main_balance: number;
@@ -39,6 +40,7 @@ type WalletProfileMeta = {
     fast_start_bonus_label?: string;
     fast_start_bonus_amount?: number;
     fast_start_apply_for_inactive?: number;
+    wallet_type_labels?: Partial<Record<string, unknown>> | null;
   } | null;
 };
 
@@ -126,6 +128,10 @@ export default function DappWalletPage() {
       }),
     [transactions]
   );
+  const walletTypeLabels = useMemo(
+    () => getWalletTypeLabels(profileMeta?.mlmSettings?.wallet_type_labels || null),
+    [profileMeta?.mlmSettings?.wallet_type_labels]
+  );
 
   return (
     <div className="min-h-screen bg-[#060b14] p-4 md:p-8">
@@ -159,24 +165,24 @@ export default function DappWalletPage() {
         ) : (
           <>
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-              {[ 
-                ["Main Balance", wallet?.main_balance || 0],
-                ["Earning Balance", wallet?.earning_balance || 0],
-                ["Daily Income", wallet?.roi_balance || 0],
-                ["Working Balance", wallet?.direct_balance || 0],
-                ["Level Balance", wallet?.level_balance || 0],
-                ["Withdrawable", wallet?.withdrawable_balance || 0],
-                ["Reward Balance", wallet?.reward_balance || 0],
-                ["Locked Balance", wallet?.locked_balance || 0],
-              ].map(([label, value]) => (
-                <div key={String(label)} className="rounded-2xl border border-[#132235] bg-[#09111c] p-4">
-                  <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">{label}</p>
+              {[
+                { key: "main_balance" as WalletTypeKey, value: wallet?.main_balance || 0 },
+                { key: "earning_balance" as WalletTypeKey, value: wallet?.earning_balance || 0 },
+                { key: "roi_balance" as WalletTypeKey, value: wallet?.roi_balance || 0 },
+                { key: "direct_balance" as WalletTypeKey, value: wallet?.direct_balance || 0 },
+                { key: "level_balance" as WalletTypeKey, value: wallet?.level_balance || 0 },
+                { key: "withdrawable_balance" as WalletTypeKey, value: wallet?.withdrawable_balance || 0 },
+                { key: "reward_balance" as WalletTypeKey, value: wallet?.reward_balance || 0 },
+                { key: "locked_balance" as WalletTypeKey, value: wallet?.locked_balance || 0 },
+              ].map(({ key, value }) => (
+                <div key={key} className="rounded-2xl border border-[#132235] bg-[#09111c] p-4">
+                  <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">{walletTypeLabels[key]}</p>
                   <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">{Number(value).toFixed(4)}</p>
-                  {label === "Daily Income" ? (
+                  {key === "roi_balance" ? (
                     <p className="mt-1 text-[11px] text-[#848e9c]">
                       {profileMeta?.mlmSettings?.roi_credit_enabled
                         ? `Scheduled credit at ${profileMeta?.mlmSettings?.roi_credit_time_utc || "00:00"} UTC`
-                        : "Daily Income credit is currently disabled"}
+                        : `${walletTypeLabels.roi_balance} credit is currently disabled`}
                     </p>
                   ) : null}
                 </div>
