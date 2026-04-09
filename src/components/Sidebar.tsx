@@ -59,7 +59,7 @@ export default function Sidebar() {
     }, [user, simRole, simulationProfiles, availableHotels]);
 
     const menuItems = useMemo(() => {
-        const isVisible = (item: AppMenuItem) => {
+        const isVisible = (item: AppMenuItem): boolean => {
             if (effectiveUser?.role_id === 1) return true; // Super Admin sees all
 
             if (Array.isArray(item.permissions) && item.permissions.length > 0) {
