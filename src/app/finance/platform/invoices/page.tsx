@@ -31,29 +31,14 @@ export default function PlatformInvoicesPage() {
 
     const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
-    useEffect(() => {
-        fetchAgents();
-    }, []);
-
-    useEffect(() => {
-        fetchInvoices();
-    }, [fetchInvoices]);
-
-    useEffect(() => {
-        const interval = window.setInterval(() => {
-            fetchInvoices();
-        }, 30000);
-        return () => window.clearInterval(interval);
-    }, [fetchInvoices]);
-
-    const fetchAgents = async () => {
+    const fetchAgents = useCallback(async () => {
         try {
             const res = await api.get('/system/finance/agents');
             setAgents(res.data.data);
         } catch (error) {
             console.error("Failed to load agents", error);
         }
-    };
+    }, []);
 
     const fetchInvoices = useCallback(async () => {
         setLoading(true);
@@ -76,6 +61,21 @@ export default function PlatformInvoicesPage() {
             setLoading(false);
         }
     }, [filters]);
+
+    useEffect(() => {
+        fetchAgents();
+    }, [fetchAgents]);
+
+    useEffect(() => {
+        fetchInvoices();
+    }, [fetchInvoices]);
+
+    useEffect(() => {
+        const interval = window.setInterval(() => {
+            fetchInvoices();
+        }, 30000);
+        return () => window.clearInterval(interval);
+    }, [fetchInvoices]);
 
     const handleFilterChange = (key: string, value: string) => {
         setFilters(prev => ({ ...prev, [key]: value === "all" ? "" : value }));
