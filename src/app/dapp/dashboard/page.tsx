@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Activity, ArrowUpRight, BarChart3, Copy, Gift, Loader2, Network, QrCode, ShieldCheck, Sparkles, Wallet, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowUpRight, BadgeCheck, BarChart3, Copy, Gift, Loader2, Network, QrCode, Sparkles, Wallet, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
-import { DAPP_CHAIN } from "@/lib/dappConfig";
 import { formatPercent, formatTokenAmount } from "@/lib/numberFormat";
 import DappWalletChip from "@/components/dapp/DappWalletChip";
 import BrandLogo from "@/components/dapp/BrandLogo";
@@ -131,15 +130,13 @@ export default function DappDashboardPage() {
   const paidOrders = useMemo(() => orders.filter((order) => order.status === "PAID"), [orders]);
   const totalPaidAmount = useMemo(() => paidOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0), [paidOrders]);
   const latestPlans = useMemo(() => plans.slice(0, 3), [plans]);
-  const usdtBnb = useMemo(() => {
-    if (typeof window === "undefined") return 0;
-    return Number(sessionStorage.getItem("walletUsdtBnb") || 0);
-  }, []);
   const activeSubscriptions = useMemo(() => profile?.activeSubscriptions || [], [profile?.activeSubscriptions]);
   const currentActivePackageName = useMemo(() => {
     const active = activeSubscriptions.find((item) => String(item.status || "").toUpperCase() === "ACTIVE");
     return active?.planName || "Inactive";
   }, [activeSubscriptions]);
+  const hasActivePackage = currentActivePackageName !== "Inactive";
+  const portfolioStatusLabel = hasActivePackage ? "ACTIVE" : "INACTIVE";
   const referralLink = useMemo(() => {
     if (!profile?.referralCode || typeof window === "undefined") return "";
     return `${window.location.origin}/dapp/login?ref=${encodeURIComponent(profile.referralCode)}`;
@@ -237,7 +234,16 @@ export default function DappDashboardPage() {
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
           <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
             <p className="text-[11px] uppercase tracking-wider text-[#5bbcff]">Active Package</p>
-            <p className="mt-2 text-lg font-bold text-[#f5f5f5] break-words">{currentActivePackageName}</p>
+            <div className="mt-2 flex items-center gap-2">
+              {hasActivePackage ? (
+                <BadgeCheck className="h-5 w-5 text-[#0ecb81]" />
+              ) : (
+                <AlertTriangle className="h-5 w-5 text-[#f6465d]" />
+              )}
+              <p className={`text-lg font-bold break-words ${hasActivePackage ? "text-[#f5f5f5]" : "text-[#f6465d]"}`}>
+                {hasActivePackage ? currentActivePackageName : "INACTIVE"}
+              </p>
+            </div>
           </div>
           <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
             <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">Total Plans</p>
@@ -288,8 +294,12 @@ export default function DappDashboardPage() {
                   Refresh
                 </button>
                 <span className="inline-flex items-center gap-1 rounded-full border border-[#3a2f09] bg-[#201a08] px-3 py-1 text-xs font-semibold text-[#f0b90b]">
-                  <ShieldCheck className="h-3.5 w-3.5 text-[#f0b90b]" />
-                  {String(profile?.status || "active").toUpperCase()}
+                  {hasActivePackage ? (
+                    <BadgeCheck className="h-3.5 w-3.5 text-[#0ecb81]" />
+                  ) : (
+                    <AlertTriangle className="h-3.5 w-3.5 text-[#f6465d]" />
+                  )}
+                  <span className={hasActivePackage ? "text-[#0ecb81]" : "text-[#f6465d]"}>{portfolioStatusLabel}</span>
                 </span>
               </div>
             </div>
@@ -330,10 +340,6 @@ export default function DappDashboardPage() {
               <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
                 <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Locked Balance</p>
                 <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.lockedBalance || 0)}</p>
-              </div>
-              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{DAPP_CHAIN.usdtSymbol} on {DAPP_CHAIN.nativeSymbol}</p>
-                <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(usdtBnb)}</p>
               </div>
             </div>
           </div>
@@ -444,10 +450,6 @@ export default function DappDashboardPage() {
                     <div>
                       <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Earned to Date</p>
                       <p className="text-[#f5f5f5]">{formatTokenAmount(sub.estimatedIncomeToDate)} {sub.tokenSymbol}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Remaining Days</p>
-                      <p className="text-[#f5f5f5]">{sub.remainingDays}</p>
                     </div>
                     <div>
                       <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Cap</p>

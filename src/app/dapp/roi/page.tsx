@@ -115,17 +115,24 @@ export default function DappRoiPage() {
 
   const subscriptions = useMemo(() => profile?.activeSubscriptions || [], [profile?.activeSubscriptions]);
   const summary = useMemo(() => {
-    return subscriptions.reduce(
+    const aggregated = subscriptions.reduce(
       (acc, sub) => {
         acc.totalInvestment += Number(sub.amount || 0);
         acc.dailyIncome += Number(sub.estimatedDailyIncome || 0);
         acc.earnedToDate += Number(sub.estimatedIncomeToDate || 0);
         acc.remainingIncome += Number(sub.estimatedRemainingIncome || 0);
-        acc.projectedTotalIncome += Number(sub.estimatedTotalIncome || 0);
+        acc.dailyRoiWeightedSum += Number(sub.dailyIncomePercent || 0) * Number(sub.amount || 0);
         return acc;
       },
-      { totalInvestment: 0, dailyIncome: 0, earnedToDate: 0, remainingIncome: 0, projectedTotalIncome: 0 }
+      { totalInvestment: 0, dailyIncome: 0, earnedToDate: 0, remainingIncome: 0, dailyRoiWeightedSum: 0 }
     );
+    const avgDailyRoiPercent = aggregated.totalInvestment > 0
+      ? aggregated.dailyRoiWeightedSum / aggregated.totalInvestment
+      : 0;
+    return {
+      ...aggregated,
+      avgDailyRoiPercent,
+    };
   }, [subscriptions]);
 
   const nextCreditLabel = useMemo(() => {
@@ -183,8 +190,8 @@ export default function DappRoiPage() {
             <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">{formatTokenAmount(summary.remainingIncome)}</p>
           </div>
           <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4">
-            <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">Projected Total ROI</p>
-            <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">{formatTokenAmount(summary.projectedTotalIncome)}</p>
+            <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">Daily ROI %</p>
+            <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">{formatPercent(summary.avgDailyRoiPercent, 4)}%</p>
           </div>
         </div>
 
