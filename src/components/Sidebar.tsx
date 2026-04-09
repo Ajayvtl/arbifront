@@ -134,9 +134,10 @@ export default function Sidebar() {
         };
 
         const isChildActive = isChildActiveRecursive(item);
+        const isHrefMatch = item.href ? (pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href as string))) : false;
         const isActive = item.exact
             ? pathname === item.href
-            : (pathname === item.href || (item.href && item.href !== '/' && pathname.startsWith(item.href) && !item.children));
+            : (isHrefMatch && !item.children);
 
         // Base padding + level indentation
         const paddingLeftClass = level === 0 ? 'px-4' : level === 1 ? 'pl-12 pr-4' : 'pl-20 pr-4';
