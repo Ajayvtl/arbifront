@@ -96,6 +96,7 @@ interface ProfileSummary {
     estimatedIncomeToDate: number;
     estimatedTotalIncome: number;
     estimatedTotalReturn?: number;
+    maxReturnMultiplier?: number;
     baseMaxReturnMultiplier?: number;
     workingGainActive?: boolean;
     workingGainLabel?: string;
