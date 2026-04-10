@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
-import { AlertTriangle, BadgeCheck, Bell, CheckCheck, ChevronRight, CircleUserRound, Home, Loader2, LogOut, Menu, Network, Sparkles, Wallet, X } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Bell, CheckCheck, ChevronRight, CircleUserRound, GitBranch, Home, Loader2, LogOut, Menu, Network, Sparkles, Wallet, X } from "lucide-react";
 import api from "@/lib/api";
 import DappWalletChip from "@/components/dapp/DappWalletChip";
 import BrandLogo from "@/components/dapp/BrandLogo";
@@ -60,6 +60,7 @@ export default function DappLayout({ children }: { children: React.ReactNode }) 
     { key: "home", href: "/dapp/dashboard", matchHref: "/dapp/dashboard", label: "Home", icon: Home },
     { key: "plan", href: hasPaidPlan ? "/dapp/roi" : "/dapp/dashboard#packages", matchHref: hasPaidPlan ? "/dapp/roi" : "/dapp/dashboard", label: hasPaidPlan ? "My Plan" : "Inactive", icon: planNavIcon, badge: pendingOrdersCount },
     { key: "network", href: "/dapp/network", matchHref: "/dapp/network", label: "Network", icon: Network },
+    { key: "level-income", href: "/dapp/level-income", matchHref: "/dapp/level-income", label: "Level Income", icon: GitBranch },
     { key: "payments", href: "/dapp/transactions", matchHref: "/dapp/transactions", label: "Payments", icon: Wallet, badge: pendingOrdersCount },
     { key: "notifications", href: "/dapp/notifications", matchHref: "/dapp/notifications", label: "Alerts", icon: Bell, badge: notificationUnreadCount },
     { key: "profile", href: "/dapp/profile", matchHref: "/dapp/profile", label: "Profile", icon: CircleUserRound },

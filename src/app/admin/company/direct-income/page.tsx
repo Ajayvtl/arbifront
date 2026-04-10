@@ -45,7 +45,7 @@ export default function CompanyDirectIncomePage() {
       const response = await api.get("/mlm/commissions/direct-income", { params: { page, limit: 20 } });
       setData((response.data?.data || { items: [] }) as PaginatedData);
     } catch (error: unknown) {
-      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to load direct income logs";
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to load sponsor income logs";
       toast.error(message);
     } finally {
       setLoading(false);
@@ -59,7 +59,7 @@ export default function CompanyDirectIncomePage() {
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Direct Income Logs</h1>
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Sponsor Income Logs(pkg)</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Rule-wise direct sponsor credits with sponsor wallet, joining wallet, joining amount, and credited amount.</p>
       </div>
 
@@ -77,12 +77,12 @@ export default function CompanyDirectIncomePage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-6 text-slate-500" colSpan={6}>Loading direct income logs...</td></tr>
+              <tr><td className="px-4 py-6 text-slate-500" colSpan={6}>Loading sponsor income logs...</td></tr>
             ) : data.items.length === 0 ? (
-              <tr><td className="px-4 py-6 text-slate-500" colSpan={6}>No direct income payouts found.</td></tr>
+              <tr><td className="px-4 py-6 text-slate-500" colSpan={6}>No sponsor income payouts found.</td></tr>
             ) : data.items.map((item) => (
               <tr key={item.id} className="border-t border-slate-100 dark:border-slate-800">
-                <td className="px-4 py-3">{item.rule_name || item.bonus_label || "Direct Income"}</td>
+                <td className="px-4 py-3">{item.rule_name || item.bonus_label || "Sponsor Income(pkg)"}</td>
                 <td className="px-4 py-3 max-w-[220px] truncate" title={item.sponsor_wallet || ""}>{item.sponsor_wallet || "-"}</td>
                 <td className="px-4 py-3 max-w-[220px] truncate" title={item.source_wallet || ""}>{item.source_wallet || "-"}</td>
                 <td className="px-4 py-3">{Number(item.source_amount || 0).toFixed(6)} {item.token_symbol || ""}</td>

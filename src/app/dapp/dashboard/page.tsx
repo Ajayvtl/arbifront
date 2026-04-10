@@ -267,8 +267,8 @@ export default function DappDashboardPage() {
 
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
           <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
-            <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">No. Of Sponsors</p>
-            <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">{profile?.metrics?.sponsorCount ?? 0}</p>
+            <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">My Sponsor</p>
+            <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">{profile?.metrics?.directReferrals ?? 0}</p>
           </div>
           <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
             <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">My Team</p>
@@ -359,18 +359,6 @@ export default function DappDashboardPage() {
                 <p className="mt-2 text-base font-semibold text-[#f5f5f5] break-all">{profile?.referralCode || "-"}</p>
               </div>
               <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Direct Referrals</p>
-                <p className="mt-2 text-base font-semibold text-[#f5f5f5]">{profile?.metrics?.directReferrals || 0}</p>
-              </div>
-              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">My Team</p>
-                <p className="mt-2 text-base font-semibold text-[#f5f5f5]">{profile?.metrics?.teamMembers || 0}</p>
-              </div>
-              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Team Investment</p>
-                <p className="mt-2 text-base font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.metrics?.teamInvestment || 0)}</p>
-              </div>
-              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
                 <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Referral Link</p>
                 <p className="mt-2 break-all text-sm font-medium text-[#f5f5f5]">{referralLink || "-"}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -431,7 +419,7 @@ export default function DappDashboardPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold text-[#f5f5f5]">{sub.planName}</p>
-                      <p className="text-xs text-[#848e9c]">{formatTokenAmount(sub.amount)} {sub.tokenSymbol} | ROI {formatPercent(sub.roiPercent, 2)}%</p>
+                      <p className="text-xs text-[#848e9c]">{formatTokenAmount(sub.amount)} {sub.tokenSymbol} | Daily Income {formatPercent(sub.dailyIncomePercent, 4)}%</p>
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       {sub.workingGainActive ? (
@@ -440,7 +428,7 @@ export default function DappDashboardPage() {
                         </span>
                       ) : null}
                       <span className="rounded-full border border-[#3a2f09] bg-[#201a08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#f0b90b]">
-                        Day {Math.min(sub.durationDays, sub.elapsedDays + 1)} / {sub.durationDays}
+                        Day {Math.min(sub.durationDays, sub.elapsedDays + 1)}
                       </span>
                     </div>
                   </div>
@@ -466,14 +454,14 @@ export default function DappDashboardPage() {
                           : ""}
                       </p>
                     </div>
-                    <div>
+                    {/* <div>
                       <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">ROI Mode</p>
                       <p className="text-[#f5f5f5]">
                         {sub.workingGainActive && sub.baseRoiPercent !== undefined
                           ? `${formatPercent(sub.baseRoiPercent, 2)}% -> ${formatPercent(sub.roiPercent, 2)}%`
                           : `${formatPercent(sub.roiPercent, 2)}% base`}
                       </p>
-                    </div>
+                    </div> */}
                   </div>
                 </div>
               ))}
@@ -537,11 +525,11 @@ export default function DappDashboardPage() {
                   <p className="text-sm text-[#b7bdc6]">
                     Daily Income: {formatPercent((plan.daily_income_percent ?? plan.roi_percent) || 0, 4)}%
                   </p>
-                  <p className="text-sm text-[#b7bdc6]">Duration: {plan.duration_days || 30} days</p>
-                  <p className="text-xs text-[#848e9c] mt-1">
+                  {/* <p className="text-sm text-[#b7bdc6]">Duration: {plan.duration_days || 30} days</p> */}
+                  {/* <p className="text-xs text-[#848e9c] mt-1">
                     Projected ROI on min amount:{" "}
                     {formatTokenAmount(Number(plan.min_amount || 0) * (Number(plan.roi_percent || 0) / 100))}
-                  </p>
+                  </p> */}
                   <p className="text-xs text-[#848e9c] mt-1">
                     Total return cap on min amount:{" "}
                     {formatTokenAmount(Number(plan.min_amount || 0) * Number(plan.max_return_multiplier || 2))}

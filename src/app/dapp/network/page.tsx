@@ -29,6 +29,7 @@ type DirectIncomeRow = {
   order_id: number | null;
   received_amount: number;
   created_at: string;
+  source_status?: string | null;
   credited_balance?: string | null;
   rule_name?: string | null;
   amount_paid?: number | null;
@@ -43,6 +44,7 @@ type LevelIncomeRow = {
   source_order_id: number | null;
   received_amount: number;
   created_at: string;
+  source_status?: string | null;
   credited_balance?: string | null;
   level?: number | null;
   level_percent?: number | null;
@@ -80,6 +82,12 @@ function formatDateTime(value?: string) {
 
 function balanceLabel(value: string | null | undefined, walletLabels?: Partial<Record<string, unknown>> | null) {
   return getWalletTypeLabel(value, walletLabels);
+}
+
+function statusPillClass(status?: string | null) {
+  return String(status || "").toUpperCase() === "ACTIVE"
+    ? "border-emerald-700/40 bg-emerald-900/30 text-emerald-300"
+    : "border-rose-700/40 bg-rose-900/30 text-rose-300";
 }
 
 export default function DappNetworkPage() {
@@ -244,9 +252,9 @@ export default function DappNetworkPage() {
                 Network Income
               </div>
               <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Direct And Level Earnings</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#8aa4bf]">
+              {/* <p className="mt-3 max-w-3xl text-sm leading-6 text-[#8aa4bf]">
                 Track direct referral income and level income from team ROI in a searchable, paginated, mobile-friendly ledger.
-              </p>
+              </p> */}
             </div>
           </div>
         </section>
@@ -371,6 +379,7 @@ export default function DappNetworkPage() {
                     <tr className="border-b border-[#132235] text-xs uppercase tracking-[0.16em] text-[#5bbcff]">
                       <th className="px-4 py-4">Date</th>
                       <th className="px-4 py-4">Referral</th>
+                      <th className="px-4 py-4">Status</th>
                       <th className="px-4 py-4">Wallet</th>
                       <th className="px-4 py-4">Paid Amount</th>
                       <th className="px-4 py-4">Received</th>
@@ -381,7 +390,7 @@ export default function DappNetworkPage() {
                   <tbody>
                     {directLoading ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-10 text-center text-[#8aa4bf]">
+                        <td colSpan={8} className="px-4 py-10 text-center text-[#8aa4bf]">
                           <span className="inline-flex items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             Loading direct referral income...
@@ -393,6 +402,11 @@ export default function DappNetworkPage() {
                         <tr key={row.id} className="border-b border-[#101b2a] text-sm text-[#dce8f5]">
                           <td className="px-4 py-4">{formatDateTime(row.created_at)}</td>
                           <td className="px-4 py-4">{row.source_referral_code || `User #${row.source_user_id || "-"}`}</td>
+                          <td className="px-4 py-4">
+                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${statusPillClass(row.source_status)}`}>
+                              {String(row.source_status || "INACTIVE")}
+                            </span>
+                          </td>
                           <td className="px-4 py-4">{shortAddress(row.source_wallet)}</td>
                           <td className="px-4 py-4">{formatAmount(row.amount_paid)} {row.token_symbol || ""}</td>
                           <td className="px-4 py-4 font-semibold text-white">{formatAmount(row.received_amount)}</td>
@@ -402,7 +416,7 @@ export default function DappNetworkPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={7} className="px-4 py-10 text-center text-[#8aa4bf]">
+                        <td colSpan={8} className="px-4 py-10 text-center text-[#8aa4bf]">
                           No direct referral income found for the selected filters.
                         </td>
                       </tr>
@@ -440,6 +454,14 @@ export default function DappNetworkPage() {
                         <div>
                           <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Received Amount</p>
                           <p className="mt-1 text-sm font-medium text-white">{formatAmount(row.received_amount)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Status</p>
+                          <p className="mt-1">
+                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${statusPillClass(row.source_status)}`}>
+                              {String(row.source_status || "INACTIVE")}
+                            </span>
+                          </p>
                         </div>
                         <div>
                           <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Credited To</p>
@@ -484,6 +506,7 @@ export default function DappNetworkPage() {
                       <th className="px-4 py-4">Date</th>
                       <th className="px-4 py-4">Level</th>
                       <th className="px-4 py-4">Referral</th>
+                      <th className="px-4 py-4">Status</th>
                       <th className="px-4 py-4">Wallet</th>
                       <th className="px-4 py-4">Package</th>
                       <th className="px-4 py-4">Received</th>
@@ -493,7 +516,7 @@ export default function DappNetworkPage() {
                   <tbody>
                     {levelLoading ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-10 text-center text-[#8aa4bf]">
+                        <td colSpan={8} className="px-4 py-10 text-center text-[#8aa4bf]">
                           <span className="inline-flex items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             Loading level income...
@@ -506,6 +529,11 @@ export default function DappNetworkPage() {
                           <td className="px-4 py-4">{formatDateTime(row.created_at)}</td>
                           <td className="px-4 py-4">Level {row.level || "-"}</td>
                           <td className="px-4 py-4">{row.source_referral_code || `User #${row.source_user_id || "-"}`}</td>
+                          <td className="px-4 py-4">
+                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${statusPillClass(row.source_status)}`}>
+                              {String(row.source_status || "INACTIVE")}
+                            </span>
+                          </td>
                           <td className="px-4 py-4">{shortAddress(row.source_wallet)}</td>
                           <td className="px-4 py-4">{formatAmount(row.package_amount)} {row.token_symbol || ""}</td>
                           <td className="px-4 py-4 font-semibold text-white">{formatAmount(row.received_amount)}</td>
@@ -514,7 +542,7 @@ export default function DappNetworkPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={7} className="px-4 py-10 text-center text-[#8aa4bf]">
+                        <td colSpan={8} className="px-4 py-10 text-center text-[#8aa4bf]">
                           No level income found for the selected filters.
                         </td>
                       </tr>
@@ -552,6 +580,14 @@ export default function DappNetworkPage() {
                         <div>
                           <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Received Amount</p>
                           <p className="mt-1 text-sm font-medium text-white">{formatAmount(row.received_amount)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Status</p>
+                          <p className="mt-1">
+                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${statusPillClass(row.source_status)}`}>
+                              {String(row.source_status || "INACTIVE")}
+                            </span>
+                          </p>
                         </div>
                         <div>
                           <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Credited To</p>

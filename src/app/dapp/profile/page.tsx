@@ -297,8 +297,8 @@ export default function DappProfilePage() {
               <p><span className="text-[#848e9c]">Company ID:</span> #{profile.companyId}</p>
               <p><span className="text-[#848e9c]">Status:</span> {String(profile.status || "").toUpperCase()}</p>
               <p><span className="text-[#848e9c]">Blocked:</span> {profile.isBlocked ? "Yes" : "No"}</p>
-              <p><span className="text-[#848e9c]">Sponsor ID:</span> {profile.sponsorId || "-"}</p>
-              <p><span className="text-[#848e9c]">Direct Referrals:</span> {profile.metrics?.directReferrals ?? 0}</p>
+              {/* <p><span className="text-[#848e9c]">Sponsor ID:</span> {profile.sponsorId || "-"}</p> */}
+              <p><span className="text-[#848e9c]">Sponsors:</span> {profile.metrics?.directReferrals ?? 0}</p>
               <p><span className="text-[#848e9c]">Joined:</span> {formatDate(profile.createdAt)}</p>
             </div>
           </div>

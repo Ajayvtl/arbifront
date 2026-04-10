@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { GitBranch, Loader2, Save } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { getWalletTypeLabels, WALLET_TYPE_KEYS, WalletTypeKey } from "@/lib/walletTypeLabels";
 
 type LevelIncomeRow = {
   level: number;
@@ -13,6 +14,8 @@ type LevelIncomeRow = {
 
 type MlmSettingsResponse = {
   level_income_config?: LevelIncomeRow[];
+  level_income_balance_type?: string;
+  wallet_type_labels?: Partial<Record<string, unknown>> | null;
 };
 
 const defaultRows: LevelIncomeRow[] = Array.from({ length: 20 }, (_, index) => ({
@@ -23,6 +26,8 @@ const defaultRows: LevelIncomeRow[] = Array.from({ length: 20 }, (_, index) => (
 
 export default function CompanyLevelIncomePage() {
   const [rows, setRows] = useState<LevelIncomeRow[]>(defaultRows);
+  const [levelIncomeBalanceType, setLevelIncomeBalanceType] = useState<WalletTypeKey>("level_balance");
+  const [walletTypeLabels, setWalletTypeLabels] = useState(getWalletTypeLabels(null));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -32,6 +37,11 @@ export default function CompanyLevelIncomePage() {
       const response = await api.get("/settings/mlm");
       const payload = (response.data?.data || {}) as MlmSettingsResponse;
       const incoming = Array.isArray(payload.level_income_config) ? payload.level_income_config : [];
+      const labels = getWalletTypeLabels(payload.wallet_type_labels || null);
+      setWalletTypeLabels(labels);
+      const configuredBalanceType = String(payload.level_income_balance_type || "level_balance").trim().toLowerCase() as WalletTypeKey;
+      setLevelIncomeBalanceType(WALLET_TYPE_KEYS.includes(configuredBalanceType) ? configuredBalanceType : "level_balance");
+
       setRows(
         defaultRows.map((item) => {
           const match = incoming.find((row) => Number(row.level) === item.level);
@@ -65,6 +75,7 @@ export default function CompanyLevelIncomePage() {
       const current = settingsRes.data?.data || {};
       await api.put("/settings/mlm", {
         ...current,
+        level_income_balance_type: levelIncomeBalanceType,
         level_income_config: rows.map((row) => ({
           level: row.level,
           percent: Number(row.percent || 0),
@@ -88,7 +99,7 @@ export default function CompanyLevelIncomePage() {
         <div>
           <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Level Income Matrix</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Define up to 20 levels of ROI-on-ROI distribution. Each active percentage is applied when a member receives a Daily Income credit.
+            Define up to 20 levels of ROI-on-ROI distribution. Each active percentage is applied when a member receives Daily Income credit.
           </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm dark:border-slate-800 dark:bg-slate-950">
@@ -157,7 +168,23 @@ export default function CompanyLevelIncomePage() {
               </div>
               <div className="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
                 <p>When a member receives Daily Income, the system checks the active upline chain up to level 20.</p>
-                <p>If a level is enabled, that upline gets the configured percentage of the member’s Daily Income credited into `level_balance`.</p>
+                <label className="space-y-1 block">
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Credit Level Income To Wallet Type</span>
+                  <select
+                    value={levelIncomeBalanceType}
+                    onChange={(e) => setLevelIncomeBalanceType(e.target.value as WalletTypeKey)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    {WALLET_TYPE_KEYS.map((key) => (
+                      <option key={key} value={key}>{walletTypeLabels[key]}</option>
+                    ))}
+                  </select>
+                </label>
+                <p>
+                  If a level is enabled, that upline gets the configured percentage of the member&apos;s Daily Income credited into
+                  {" "}
+                  <span className="font-semibold">{walletTypeLabels[levelIncomeBalanceType]}</span>.
+                </p>
                 <p>The distribution is idempotent per ROI credit date, so the same level payout is not duplicated on retries.</p>
               </div>
               <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">

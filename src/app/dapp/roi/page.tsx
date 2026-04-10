@@ -161,9 +161,9 @@ export default function DappRoiPage() {
                 ROI TRACKER
               </div>
               <h1 className="mt-3 text-2xl font-extrabold">Package ROI Schedule</h1>
-              <p className="mt-2 max-w-3xl text-sm text-[#b0d6f5]">
+              {/* <p className="mt-2 max-w-3xl text-sm text-[#b0d6f5]">
                 Track all active packages, projected ROI generation, cap remaining, and the configured wallet credit window in one full-width view.
-              </p>
+              </p> */}
             </div>
             <div className="rounded-2xl border border-[#1b3452] bg-[#0b1930] px-4 py-3 text-sm text-[#d9efff]">
               <p className="text-[11px] uppercase tracking-[0.18em] text-[#5bbcff]">Wallet Credit Time</p>
@@ -245,14 +245,14 @@ export default function DappRoiPage() {
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 xl:grid-cols-6 gap-3 text-sm">
-                      <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-3">
+                      {/* <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-3">
                         <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">ROI %</p>
                         <p className="mt-1 font-semibold text-[#f5f5f5]">
                           {sub.workingGainActive && sub.baseRoiPercent !== undefined
                             ? `${formatPercent(sub.baseRoiPercent, 2)}% -> ${formatPercent(sub.roiPercent, 2)}%`
                             : `${formatPercent(sub.roiPercent, 2)}%`}
                         </p>
-                      </div>
+                      </div> */}
                       <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-3">
                         <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Daily ROI %</p>
                         <p className="mt-1 font-semibold text-[#f5f5f5]">
@@ -314,7 +314,7 @@ export default function DappRoiPage() {
                           <p>Total return target: {formatTokenAmount(Number(sub.estimatedTotalReturn || (sub.amount + sub.estimatedTotalIncome)))} {sub.tokenSymbol}</p>
                           {sub.workingGainActive ? <p>Working gain active since: {formatDate(sub.workingGainQualifiedAt || null)}</p> : <p>Working gain status: Not yet qualified</p>}
                           <p className="inline-flex items-center gap-1"><Clock3 className="h-4 w-4 text-[#f0b90b]" /> Credit at {profile?.mlmSettings?.roi_credit_time_utc || "00:00"} UTC</p>
-                          <p className="inline-flex items-center gap-1"><Wallet className="h-4 w-4 text-[#5bbcff]" /> Wallet posting follows company ROI settings</p>
+                          {/* <p className="inline-flex items-center gap-1"><Wallet className="h-4 w-4 text-[#5bbcff]" /> Wallet posting follows company ROI settings</p> */}
                         </div>
                       </div>
                     </div>

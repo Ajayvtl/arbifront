@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { PencilLine, Plus, RefreshCcw } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { getWalletTypeLabels, WALLET_TYPE_KEYS, WalletTypeKey } from "@/lib/walletTypeLabels";
 
 type PlanItem = {
   id: number;
@@ -15,6 +16,7 @@ type PlanItem = {
   duration_days: number;
   max_return_multiplier?: number;
   payment_currency?: "AUTO" | "BNB" | "USDT";
+  roi_credit_balance_type?: string;
   created_at: string;
 };
 
@@ -23,15 +25,11 @@ type PlanForm = {
   minAmount: string;
   maxAmount: string;
   roiPercent: string;
+  dailyIncomePercent: string;
   durationDays: string;
   maxReturnMultiplier: string;
   paymentCurrency: "AUTO" | "BNB" | "USDT";
-};
-
-type CalculatorForm = {
-  investmentAmount: string;
-  dailyIncomePercent: string;
-  days: string;
+  roiCreditBalanceType: WalletTypeKey;
 };
 
 const emptyForm: PlanForm = {
@@ -39,15 +37,11 @@ const emptyForm: PlanForm = {
   minAmount: "",
   maxAmount: "",
   roiPercent: "0",
+  dailyIncomePercent: "0",
   durationDays: "30",
   maxReturnMultiplier: "2.00",
   paymentCurrency: "AUTO",
-};
-
-const emptyCalculator: CalculatorForm = {
-  investmentAmount: "",
-  dailyIncomePercent: "0",
-  days: "30",
+  roiCreditBalanceType: "roi_balance",
 };
 
 export default function CompanyPlansPage() {
@@ -56,13 +50,17 @@ export default function CompanyPlansPage() {
   const [submitting, setSubmitting] = useState(false);
   const [editingPlanId, setEditingPlanId] = useState<number | null>(null);
   const [form, setForm] = useState<PlanForm>(emptyForm);
-  const [calculator, setCalculator] = useState<CalculatorForm>(emptyCalculator);
+  const [walletTypeLabels, setWalletTypeLabels] = useState(getWalletTypeLabels(null));
 
   const loadPlans = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get("/mlm/plans", { params: { limit: 200 } });
-      setPlans((response.data?.data || []) as PlanItem[]);
+      const [plansResponse, settingsResponse] = await Promise.all([
+        api.get("/mlm/plans", { params: { limit: 200 } }),
+        api.get("/settings/mlm"),
+      ]);
+      setPlans((plansResponse.data?.data || []) as PlanItem[]);
+      setWalletTypeLabels(getWalletTypeLabels(settingsResponse.data?.data?.wallet_type_labels || null));
     } catch (error: unknown) {
       const message =
         (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
@@ -92,17 +90,29 @@ export default function CompanyPlansPage() {
   };
 
   const startEdit = (plan: PlanItem) => {
+    const roiWallet = String(plan.roi_credit_balance_type || "roi_balance").trim().toLowerCase() as WalletTypeKey;
     setEditingPlanId(plan.id);
     setForm({
       name: plan.name || "",
       minAmount: String(plan.min_amount ?? ""),
       maxAmount: String(plan.max_amount ?? ""),
       roiPercent: String(plan.roi_percent ?? 0),
+      dailyIncomePercent: String(plan.daily_income_percent ?? 0),
       durationDays: String(plan.duration_days ?? 30),
       maxReturnMultiplier: String(plan.max_return_multiplier ?? 2.00),
       paymentCurrency: plan.payment_currency || "AUTO",
+      roiCreditBalanceType: WALLET_TYPE_KEYS.includes(roiWallet) ? roiWallet : "roi_balance",
     });
   };
+
+  const computedDurationDays = useMemo(() => {
+    const roi = Number(form.roiPercent || 0);
+    const daily = Number(form.dailyIncomePercent || 0);
+    if (!Number.isFinite(roi) || !Number.isFinite(daily) || roi <= 0 || daily <= 0) {
+      return 0;
+    }
+    return Math.max(1, Math.round(roi / daily));
+  }, [form.roiPercent, form.dailyIncomePercent]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -112,9 +122,11 @@ export default function CompanyPlansPage() {
       minAmount: Number(form.minAmount),
       maxAmount: Number(form.maxAmount),
       roiPercent: Number(form.roiPercent || 0),
-      durationDays: Number(form.durationDays || 30),
+      dailyIncomePercent: Number(form.dailyIncomePercent || 0),
+      durationDays: computedDurationDays > 0 ? computedDurationDays : Number(form.durationDays || 30),
       maxReturnMultiplier: Number(form.maxReturnMultiplier || 2.00),
       paymentCurrency: form.paymentCurrency,
+      roiCreditBalanceType: form.roiCreditBalanceType,
     };
 
     if (!payload.name) {
@@ -131,6 +143,10 @@ export default function CompanyPlansPage() {
     }
     if (!Number.isFinite(payload.durationDays) || payload.durationDays <= 0) {
       toast.error("Duration must be a positive number");
+      return;
+    }
+    if (payload.roiPercent > 0 && (!Number.isFinite(payload.dailyIncomePercent) || payload.dailyIncomePercent <= 0)) {
+      toast.error("Daily Income % must be greater than 0 when ROI % is greater than 0");
       return;
     }
 
@@ -154,24 +170,6 @@ export default function CompanyPlansPage() {
       setSubmitting(false);
     }
   };
-
-  const calculatorResult = useMemo(() => {
-    const investment = Number(calculator.investmentAmount || 0);
-    const dailyIncomePercent = Number(calculator.dailyIncomePercent || 0);
-    const days = Number(calculator.days || 0);
-
-    const perDayIncome = Number.isFinite(investment) && Number.isFinite(dailyIncomePercent)
-      ? (investment * dailyIncomePercent) / 100
-      : 0;
-    const totalPaid = Number.isFinite(perDayIncome) && Number.isFinite(days) ? perDayIncome * days : 0;
-    const totalReturn = investment + totalPaid;
-
-    return {
-      perDayIncome: Number.isFinite(perDayIncome) ? perDayIncome : 0,
-      totalPaid: Number.isFinite(totalPaid) ? totalPaid : 0,
-      totalReturn: Number.isFinite(totalReturn) ? totalReturn : 0,
-    };
-  }, [calculator]);
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
@@ -243,21 +241,9 @@ export default function CompanyPlansPage() {
               className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
             />
           </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Duration (Days)</span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              value={form.durationDays}
-              onChange={(e) => setForm((prev) => ({ ...prev, durationDays: e.target.value }))}
-              placeholder="30"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-            />
-          </label>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
           <label className="space-y-1">
             <span className="text-xs font-medium text-slate-600 dark:text-slate-300">ROI %</span>
             <input
@@ -271,6 +257,19 @@ export default function CompanyPlansPage() {
             />
           </label>
           <label className="space-y-1">
+            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Daily Income %</span>
+            <input
+              type="number"
+              min="0"
+              step="0.0001"
+              value={form.dailyIncomePercent}
+              onChange={(e) => setForm((prev) => ({ ...prev, dailyIncomePercent: e.target.value }))}
+              placeholder="e.g. 1"
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+            />
+            <p className="mt-1 text-xs text-slate-500">Duration is automatically computed as: (ROI % / Daily Income %)</p>
+          </label>
+          <label className="space-y-1">
             <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Max Return Multiplier</span>
             <input
               type="number"
@@ -281,7 +280,18 @@ export default function CompanyPlansPage() {
               placeholder="e.g. 2.00 for 2x"
               className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
             />
-            <p className="mt-1 text-xs text-slate-500">Daily Income % is automatically calculated as: (Total ROI / Duration)</p>
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Duration (Days)</span>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={computedDurationDays > 0 ? String(computedDurationDays) : form.durationDays}
+              readOnly
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+            />
+            <p className="mt-1 text-xs text-slate-500">Auto-calculated from ROI % and Daily Income %.</p>
           </label>
           <label className="space-y-1">
             <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Payment Currency</span>
@@ -296,6 +306,19 @@ export default function CompanyPlansPage() {
             </select>
             <p className="mt-1 text-xs text-slate-500">For testing you can set tiny package values like `0.003` and bind them to a specific payment currency.</p>
           </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">ROI Credit Wallet</span>
+            <select
+              value={form.roiCreditBalanceType}
+              onChange={(e) => setForm((prev) => ({ ...prev, roiCreditBalanceType: e.target.value as WalletTypeKey }))}
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+            >
+              {WALLET_TYPE_KEYS.map((key) => (
+                <option key={key} value={key}>{walletTypeLabels[key]}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-slate-500">Daily ROI credits for this plan will go into the selected wallet bucket.</p>
+          </label>
           <div className="md:col-span-3 flex justify-end">
             <button
               type="submit"
@@ -308,65 +331,6 @@ export default function CompanyPlansPage() {
           </div>
         </div>
       </form>
-
-      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 md:p-5 space-y-4">
-        <h2 className="text-lg font-semibold">Income Calculator</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Calculates expected daily income and total paid from investment amount, daily income %, and number of days.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Investment Amount</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={calculator.investmentAmount}
-              onChange={(e) => setCalculator((prev) => ({ ...prev, investmentAmount: e.target.value }))}
-              placeholder="e.g. 1000"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Daily Income %</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={calculator.dailyIncomePercent}
-              onChange={(e) => setCalculator((prev) => ({ ...prev, dailyIncomePercent: e.target.value }))}
-              placeholder="e.g. 1.5"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">No. of Days</span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              value={calculator.days}
-              onChange={(e) => setCalculator((prev) => ({ ...prev, days: e.target.value }))}
-              placeholder="e.g. 30"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-            />
-          </label>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
-            <p className="text-xs text-slate-500">Per Day Income</p>
-            <p className="text-xl font-semibold">{calculatorResult.perDayIncome.toFixed(2)}</p>
-          </div>
-          <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
-            <p className="text-xs text-slate-500">Total Paid</p>
-            <p className="text-xl font-semibold">{calculatorResult.totalPaid.toFixed(2)}</p>
-          </div>
-          <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
-            <p className="text-xs text-slate-500">Total Return (Principal + Paid)</p>
-            <p className="text-xl font-semibold">{calculatorResult.totalReturn.toFixed(2)}</p>
-          </div>
-        </div>
-      </div>
 
       <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-auto">
         <table className="min-w-full text-sm">
@@ -381,15 +345,16 @@ export default function CompanyPlansPage() {
               <th className="text-left px-4 py-3">Duration</th>
               <th className="text-left px-4 py-3">Cap Multiplier</th>
               <th className="text-left px-4 py-3">Currency</th>
+              <th className="text-left px-4 py-3">ROI Wallet</th>
               <th className="text-left px-4 py-3">Created</th>
               <th className="text-left px-4 py-3">Action</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-6 text-slate-500" colSpan={11}>Loading plans...</td></tr>
+              <tr><td className="px-4 py-6 text-slate-500" colSpan={12}>Loading plans...</td></tr>
             ) : plans.length === 0 ? (
-              <tr><td className="px-4 py-6 text-slate-500" colSpan={11}>No plans available.</td></tr>
+              <tr><td className="px-4 py-6 text-slate-500" colSpan={12}>No plans available.</td></tr>
             ) : plans.map((plan) => (
               <tr key={plan.id} className="border-t border-slate-100 dark:border-slate-800">
                 <td className="px-4 py-3">#{plan.id}</td>
@@ -401,6 +366,7 @@ export default function CompanyPlansPage() {
                 <td className="px-4 py-3">{plan.duration_days} days</td>
                 <td className="px-4 py-3">{Number(plan.max_return_multiplier || 2).toFixed(2)}x</td>
                 <td className="px-4 py-3">{plan.payment_currency || "AUTO"}</td>
+                <td className="px-4 py-3">{walletTypeLabels[(String(plan.roi_credit_balance_type || "roi_balance").trim().toLowerCase() as WalletTypeKey)] || String(plan.roi_credit_balance_type || "roi_balance")}</td>
                 <td className="px-4 py-3">{new Date(plan.created_at).toLocaleDateString()}</td>
                 <td className="px-4 py-3">
                   <button

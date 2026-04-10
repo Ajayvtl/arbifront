@@ -131,10 +131,6 @@ export default function DappTransactionsPage() {
               <h1 className="mt-3 text-3xl font-extrabold text-white md:text-4xl">
                 Transactions
               </h1>
-              <p className="mt-3 max-w-2xl text-sm text-[#8aa4bf] md:text-base">
-                Full-width payment history for member orders, confirmations, receiver wallet checks,
-                and transaction-hash tracing across your active chain profiles.
-              </p>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:min-w-[360px]">
               <div className="rounded-2xl border border-[#1a2d45] bg-[#0d1726]/88 p-4">
@@ -287,10 +283,10 @@ export default function DappTransactionsPage() {
                         <p className="text-[11px] uppercase tracking-[0.16em] text-[#7e9cbd]">Amount</p>
                         <p className="mt-2 text-white">{row.amount} {row.token_symbol}</p>
                       </div>
-                      <div className="rounded-2xl border border-[#1b2d43] bg-[#0a1422] p-3">
+                      {/* <div className="rounded-2xl border border-[#1b2d43] bg-[#0a1422] p-3">
                         <p className="text-[11px] uppercase tracking-[0.16em] text-[#7e9cbd]">Chain</p>
                         <p className="mt-2 text-white">{row.chain_name || row.chain_id || "-"}</p>
-                      </div>
+                      </div> */}
                     </div>
 
                     <div className="mt-4 space-y-3 text-sm">
@@ -324,7 +320,7 @@ export default function DappTransactionsPage() {
                       <th className="px-4 py-4 font-semibold">Order</th>
                       <th className="px-4 py-4 font-semibold">Plan</th>
                       <th className="px-4 py-4 font-semibold">Amount</th>
-                      <th className="px-4 py-4 font-semibold">Chain</th>
+                      {/* <th className="px-4 py-4 font-semibold">Chain</th> */}
                       <th className="px-4 py-4 font-semibold">Receiver</th>
                       <th className="px-4 py-4 font-semibold">Status</th>
                       <th className="px-4 py-4 font-semibold">Tx Hash</th>
@@ -338,7 +334,7 @@ export default function DappTransactionsPage() {
                         <td className="px-4 py-4 align-top">#{row.id}</td>
                         <td className="px-4 py-4 align-top">{row.plan_name || `Plan ${row.plan_id}`}</td>
                         <td className="px-4 py-4 align-top">{row.amount} {row.token_symbol}</td>
-                        <td className="px-4 py-4 align-top">{row.chain_name || row.chain_id || "-"}</td>
+                        {/* <td className="px-4 py-4 align-top">{row.chain_name || row.chain_id || "-"}</td> */}
                         <td className="max-w-[180px] px-4 py-4 align-top break-all text-[#c8d6e5]">{row.receiver_address || "-"}</td>
                         <td className="px-4 py-4 align-top">
                           <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${renderStatus(row.status)}`}>
