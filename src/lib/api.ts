@@ -79,8 +79,8 @@ api.interceptors.response.use(
 
                 if (path.startsWith('/dapp')) {
                     window.location.href = '/dapp/login';
-                } else if (path !== '/login') {
-                    window.location.href = '/login';
+                } else if (path !== '/login' && path !== '/developer/login') {
+                    window.location.href = '/developer/login';
                 }
             }
         }

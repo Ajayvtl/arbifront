@@ -1,24 +1,34 @@
 "use client";
 
-import { useAuth } from "@/context/AuthContext";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import UniversalDashboard from "@/components/dashboard/UniversalDashboard";
+import { useAuth } from "@/context/AuthContext";
 import CompanyAdminDashboard from "@/components/dashboard/CompanyAdminDashboard";
+import { Loader2 } from "lucide-react";
 
-export default function SuperAdminDashboard() {
-    const { user, isLoading } = useAuth();
-    const router = useRouter();
+const ADMIN_ROLES = ["SUPER_ADMIN", "COMPANY_ADMIN", "FINANCE_ADMIN", "SUPPORT_ADMIN"];
 
-    useEffect(() => {
-        if (!isLoading && user?.role_id !== 1) {
-            // router.push('/dashboard'); // Kick non-super admins out? Or let UniversalDashboard handle "No Config"
-        }
-    }, [user, isLoading, router]);
+export default function AdminDashboardPage() {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
 
-    if (isLoading) return <div>Loading...</div>;
-    if (user?.role === "COMPANY_ADMIN") return <CompanyAdminDashboard />;
+  useEffect(() => {
+    if (!isLoading && (!user || !ADMIN_ROLES.includes(user.role || ""))) {
+      router.replace("/login");
+    }
+  }, [user, isLoading, router]);
 
-    return <UniversalDashboard />;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+      </div>
+    );
+  }
+
+  if (!user || !ADMIN_ROLES.includes(user.role || "")) {
+    return null;
+  }
+
+  return <CompanyAdminDashboard />;
 }
-

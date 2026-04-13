@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
 
@@ -35,33 +35,64 @@ function formatDate(value: string | null) {
   }
 }
 
+const REFRESH_SECS = 60;
+
 export default function CompanyWorkingGainPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [data, setData] = useState<PaginatedData>({ items: [] });
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [countdown, setCountdown] = useState(REFRESH_SECS);
+  const countRef = useRef(REFRESH_SECS);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const response = await api.get("/mlm/commissions/working-gain", { params: { page, limit: 20 } });
       setData((response.data?.data || { items: [] }) as PaginatedData);
+      setLastUpdated(new Date());
+      countRef.current = REFRESH_SECS;
+      setCountdown(REFRESH_SECS);
     } catch (error: unknown) {
       const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to load working gain logs";
       toast.error(message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [page]);
 
+  useEffect(() => { void load(); }, [load]);
+
+  // 60s auto-refresh
   useEffect(() => {
-    void load();
+    const interval = setInterval(() => { void load(true); }, REFRESH_SECS * 1000);
+    return () => clearInterval(interval);
   }, [load]);
+
+  // countdown tick
+  useEffect(() => {
+    const tick = setInterval(() => {
+      countRef.current = countRef.current > 0 ? countRef.current - 1 : REFRESH_SECS;
+      setCountdown(countRef.current);
+    }, 1000);
+    return () => clearInterval(tick);
+  }, []);
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">ROI Increment (Working) Logs</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Qualified ROI increment events by rule, wallet, package amount, direct count, business volume, and boosted ROI/cap.</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">ROI Increment (Working) Logs</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Qualified ROI increment events by rule, wallet, package amount, direct count, business volume, and boosted ROI/cap.</p>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+          </span>
+          {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()} · next in ${countdown}s` : "Connecting…"}
+          <button type="button" onClick={() => void load()} className="ml-2 rounded-lg border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs hover:border-emerald-500 transition-colors">↺ Refresh</button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-auto">

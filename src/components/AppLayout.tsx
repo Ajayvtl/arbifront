@@ -5,7 +5,7 @@ import Sidebar from "./Sidebar";
 import TopNavbar from "./TopNavbar";
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 function LayoutContent({
@@ -21,29 +21,22 @@ function LayoutContent({
     const { token, isLoading } = useAuth();
     const router = useRouter();
     const shouldHideNavigation = isAuthPage || pathname.startsWith('/dapp');
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
 
     const hasStoredToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('token'));
 
     useEffect(() => {
-        if (!mounted) return;
         if (!isLoading && !token && !hasStoredToken && !isAuthPage) {
             if (pathname.startsWith('/dapp')) {
                 router.replace('/dapp/login');
                 return;
             }
-            router.replace('/login');
+            if (pathname.startsWith('/developer')) {
+                router.replace('/backend/login');
+                return;
+            }
+            router.replace('/backend/login');
         }
-    }, [isLoading, token, hasStoredToken, isAuthPage, pathname, router, mounted]);
-
-    // Prevent hydration mismatch by deferring conditional mounting for secure pages
-    if (!mounted) {
-        if (!isAuthPage) return null; 
-    }
+    }, [isLoading, token, hasStoredToken, isAuthPage, pathname, router]);
 
     if (isLoading) {
         return (
@@ -71,7 +64,12 @@ function LayoutContent({
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
-    const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/dapp/login';
+    const isAuthPage =
+        pathname === '/login' ||
+        pathname === '/backend/login' ||
+        pathname === '/developer/login' ||
+        pathname === '/register' ||
+        pathname === '/dapp/login';
 
     return (
         <ThemeProvider>

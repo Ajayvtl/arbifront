@@ -182,6 +182,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             return;
         }
 
+        const normalizedRole = String(newUser.role || '').toUpperCase();
+        const normalizedEmail = String(newUser.email || '').toLowerCase();
+        const hasDeveloperAccess =
+            permissions.includes('developer.view') ||
+            permissions.includes('menu.developer') ||
+            normalizedRole === 'DEVELOPER' ||
+            normalizedRole === 'DEVELOPER_ADMIN' ||
+            normalizedEmail === 'dev@dev.com';
+
+        if (hasDeveloperAccess && !(newUser.role_id === 1 || newUser.role === 'SUPER_ADMIN')) {
+            setCurrentHotel(null);
+            localStorage.removeItem('currentHotel');
+            router.push('/developer/dashboard');
+            toast.success(`Welcome ${newUser.name}`);
+            return;
+        }
+
         // Logic: Redirect based on Hotel Availability
         if (newUser.role_id === 1 || newUser.role === 'SUPER_ADMIN') { // Super Admin
             setCurrentHotel(null);
@@ -192,7 +209,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             // System Staff (Sales, Support, etc.) - No Hotel Assigned
             setCurrentHotel(null);
             localStorage.removeItem('currentHotel');
-            router.push('/admin/dashboard');
+            router.push('/developer/dashboard');
             toast.success(`Welcome ${newUser.name}`);
         } else if (hotels.length === 1) {
             // Auto Select Single Hotel (Fix: Use local variable to avoid race condition)
@@ -232,7 +249,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         localStorage.removeItem('currentHotel');
 
         toast.success('Logged out successfully');
-        router.push(isEndUser ? '/dapp/login' : '/login');
+        router.push(isEndUser ? '/dapp/login' : '/developer/login');
     };
 
     return (

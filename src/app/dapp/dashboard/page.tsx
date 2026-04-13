@@ -225,7 +225,6 @@ export default function DappDashboardPage() {
                 MEMBER DASHBOARD
               </div>
               <h1 className="mt-3 text-2xl md:text-3xl font-extrabold">Account Overview</h1>
-              <p className="mt-2 max-w-2xl text-sm text-[#b0d6f5]">Track plans, payouts, referrals, and account activity with a branded mobile-first member dashboard.</p>
             </div>
             <div className="w-full sm:w-auto">
               <DappWalletChip
@@ -486,8 +485,8 @@ export default function DappDashboardPage() {
               >
                 <div className="flex items-center justify-between gap-2 text-sm font-medium">
                   <div className="flex items-center gap-2">
-                  <item.icon className="w-4 h-4 text-[#f0b90b]" />
-                  <span className="text-[#f5f5f5]">{item.label}</span>
+                    <item.icon className="w-4 h-4 text-[#f0b90b]" />
+                    <span className="text-[#f5f5f5]">{item.label}</span>
                   </div>
                   <ArrowUpRight className="w-4 h-4 text-[#848e9c] group-hover:text-[#f0b90b]" />
                 </div>
@@ -579,32 +578,32 @@ export default function DappDashboardPage() {
                 ))}
               </div>
               <div className="hidden md:block overflow-auto">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-[#161a20]">
-                  <tr className="text-left text-[#848e9c] border-b border-[#2b3139]">
-                    <th className="py-2 pr-3">Order</th>
-                    <th className="py-2 pr-3">Plan</th>
-                    <th className="py-2 pr-3">Amount</th>
-                    <th className="py-2 pr-3">Chain</th>
-                    <th className="py-2 pr-3">Status</th>
-                    <th className="py-2 pr-3">Tx</th>
-                    <th className="py-2 pr-3">Created</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.map((o) => (
-                    <tr key={o.id} className="border-b border-[#1e2329] text-[#f5f5f5]">
-                      <td className="py-2 pr-3">#{o.id}</td>
-                      <td className="py-2 pr-3">{o.plan_name || `Plan ${o.plan_id}`}</td>
-                      <td className="py-2 pr-3">{o.amount} {o.token_symbol}</td>
-                      <td className="py-2 pr-3">{o.chain_name || o.chain_id || "-"}</td>
-                      <td className="py-2 pr-3">{o.status}</td>
-                      <td className="py-2 pr-3 break-all">{o.tx_hash || "-"}</td>
-                      <td className="py-2 pr-3">{formatDate(o.created_at)}</td>
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-[#161a20]">
+                    <tr className="text-left text-[#848e9c] border-b border-[#2b3139]">
+                      <th className="py-2 pr-3">Order</th>
+                      <th className="py-2 pr-3">Plan</th>
+                      <th className="py-2 pr-3">Amount</th>
+                      <th className="py-2 pr-3">Chain</th>
+                      <th className="py-2 pr-3">Status</th>
+                      <th className="py-2 pr-3">Tx</th>
+                      <th className="py-2 pr-3">Created</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {orders.map((o) => (
+                      <tr key={o.id} className="border-b border-[#1e2329] text-[#f5f5f5]">
+                        <td className="py-2 pr-3">#{o.id}</td>
+                        <td className="py-2 pr-3">{o.plan_name || `Plan ${o.plan_id}`}</td>
+                        <td className="py-2 pr-3">{o.amount} {o.token_symbol}</td>
+                        <td className="py-2 pr-3">{o.chain_name || o.chain_id || "-"}</td>
+                        <td className="py-2 pr-3">{o.status}</td>
+                        <td className="py-2 pr-3 break-all">{o.tx_hash || "-"}</td>
+                        <td className="py-2 pr-3">{formatDate(o.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </>
           )}

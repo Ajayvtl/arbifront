@@ -12,15 +12,20 @@ export interface AppMenuItem {
     children?: AppMenuItem[];
 }
 
-// Super Admin menu trimmed to core platform controls only.
+// Super Admin menu — platform-level controls only.
+// MLM operations (member registry, commissions, payouts, plans) are in Developer (COMPANY_ADMIN) scope.
+// Do NOT duplicate developer items here.
 export const SUPER_ADMIN_MENU: AppMenuItem[] = [
     { section: "Platform", name: "Dashboard", href: "/admin/dashboard", icon: "LayoutDashboard" },
-    { section: "Platform", name: "Companies", href: "/admin/hotels", icon: "BuildingOffice2Icon", module: "hotels" },
     { section: "Platform", name: "Admin Access", href: "/admin/platform-admins", icon: "Shield", module: "users" },
-    { section: "Platform", name: "System Users", href: "/admin/users", icon: "Users", module: "users" },
-    { section: "Finance", name: "Finance (Platform)", href: "/finance/platform", icon: "FileText", module: "finance_system" },
     { section: "Monitoring", name: "Blockchain Events", href: "/admin/developer/operations", icon: "Activity", module: "developer" },
-    { section: "System", name: "Global Settings", href: "/admin/settings/general", icon: "GlobeAltIcon", module: "settings" }
+    { section: "System", name: "Reports", href: "/admin/reports", icon: "BarChart3" },
+    { section: "System", name: "Global Settings", href: "/admin/settings/general", icon: "GlobeAltIcon", module: "settings" },
+    // MLM quick-access (read-only overview — full management is in Developer scope)
+    { section: "MLM", name: "Member Registry", href: "/developer/company/members", icon: "Users" },
+    { section: "MLM", name: "Payout Queue", href: "/developer/company/payouts", icon: "FileText" },
+    { section: "MLM", name: "Commission Runs", href: "/developer/company/commissions", icon: "Calculator" },
+    { section: "MLM", name: "KYC Review", href: "/developer/company/kyc", icon: "ShieldCheck" },
 ];
 
 // MLM End User (Distributor) Menu
@@ -44,25 +49,24 @@ export const MLM_END_USER_MENU: AppMenuItem[] = [
 
 // MLM Company Admin (Tenant Company) Menu
 export const COMPANY_ADMIN_MENU: AppMenuItem[] = [
-    { section: "Overview", name: "Command Center", href: "/admin/dashboard", icon: "LayoutDashboard" },
-    { section: "Network Operations", name: "Member Registry", href: "/admin/company/members", icon: "Users" },
-    { section: "Compensation", name: "Commission Runs", href: "/admin/company/commissions", icon: "Calculator" },
-    { section: "Compensation", name: "Sponsor Income(pkg)", href: "/admin/company/direct-income", icon: "Wallet" },
-    { section: "Developer", name: "Sponsor Income(pkg)", href: "/admin/company/direct-income-rule", icon: "Wallet" },
-    { section: "Developer", name: "Booster Config", href: "/admin/company/booster", icon: "Rocket" },
-    { section: "Developer", name: "ROI Increment (Working) Logs", href: "/admin/company/working-gain", icon: "BarChart3" },
-    { section: "Developer", name: "Level Income", href: "/admin/company/level-income", icon: "GitBranch" },
-    { section: "Compensation", name: "Payment Logs", href: "/admin/company/transactions", icon: "Wallet" },
-    { section: "Compensation", name: "Payout Queue", href: "/admin/company/payouts", icon: "FileText" },
-    { section: "Compensation", name: "E-Wallet Ledger", href: "/admin/company/ledger", icon: "CircleStackIcon" },
-    { section: "Developer", name: "ROI & Payment Mode", href: "/admin/company/bonuses", icon: "Tag" },
-    { section: "Developer", name: "Joining Bonus", href: "/admin/company/joining-bonus", icon: "Tag" },
-    { section: "Developer", name: "Fast-Start Bonus", href: "/admin/company/fast-start-bonus", icon: "Activity" },
-    { section: "Developer", name: "Plan Catalog", href: "/admin/company/plans", icon: "ShoppingBag" },
-    { section: "Developer", name: "Wallet Types", href: "/admin/company/wallet-types", icon: "Wallet" },
-    { section: "Developer", name: "Network Settings", href: "/admin/company/network-settings", icon: "Activity" },
-    { section: "Developer", name: "Testing Tools", href: "/admin/company/testing", icon: "FlaskConical" },
-    { section: "Developer", name: "Company Settings", href: "/admin/settings/general", icon: "Settings" },
+    { section: "Developer", name: "Command Center", href: "/developer/dashboard", icon: "LayoutDashboard" },
+    { section: "Developer", name: "Member Registry", href: "/developer/company/members", icon: "Users" },
+    { section: "Developer", name: "Commission Runs", href: "/developer/company/commissions", icon: "Calculator" },
+    { section: "Developer", name: "Sponsor Income Logs", href: "/developer/company/direct-income", icon: "Wallet" },
+    { section: "Developer", name: "Sponsor Income Rules", href: "/developer/company/direct-income-rule", icon: "Settings" },
+    { section: "Developer", name: "ROI Increment (Working) Logs", href: "/developer/company/working-gain", icon: "BarChart3" },
+    { section: "Developer", name: "Level Income", href: "/developer/company/level-income", icon: "GitBranch" },
+    { section: "Developer", name: "Payment Logs", href: "/developer/company/transactions", icon: "Wallet" },
+    { section: "Developer", name: "Payout Queue", href: "/developer/company/payouts", icon: "FileText" },
+    { section: "Developer", name: "E-Wallet Ledger", href: "/developer/company/ledger", icon: "CircleStackIcon" },
+    { section: "Developer", name: "ROI & Payment Mode", href: "/developer/company/bonuses", icon: "Tag" },
+    { section: "Developer", name: "Joining Bonus", href: "/developer/company/joining-bonus", icon: "Tag" },
+    { section: "Developer", name: "Fast-Start Bonus", href: "/developer/company/fast-start-bonus", icon: "Activity" },
+    { section: "Developer", name: "Plan Catalog", href: "/developer/company/plans", icon: "ShoppingBag" },
+    { section: "Developer", name: "Wallet Types", href: "/developer/company/wallet-types", icon: "Wallet" },
+    { section: "Developer", name: "Network Settings", href: "/developer/company/network-settings", icon: "Activity" },
+    { section: "Developer", name: "Testing Tools", href: "/developer/company/testing", icon: "FlaskConical" },
+    { section: "Developer", name: "Company Settings", href: "/developer/settings/general", icon: "Settings" },
 ];
 
 // HMIS Menu Structure (for Tenant Admins/Staff)

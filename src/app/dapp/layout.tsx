@@ -483,7 +483,7 @@ export default function DappLayout({ children }: { children: React.ReactNode }) 
       ) : null}
       {showBottomNav ? (
         <nav className="fixed inset-x-0 bottom-0 z-50 xl:hidden">
-          <div className="relative w-full border-t border-[#123a62] bg-[#09111c]/98 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-12px_28px_rgba(0,0,0,0.4)] backdrop-blur">
+          <div className="relative w-full border-t border-[#123a62] bg-[#09111c]/98 px-1 pb-[env(safe-area-inset-bottom)] pt-1 shadow-[0_-12px_28px_rgba(0,0,0,0.4)] backdrop-blur">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#1ea0ff] to-transparent" />
             <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}>
             {navItems.map((item) => {

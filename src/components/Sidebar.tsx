@@ -98,11 +98,26 @@ export default function Sidebar() {
             }, []);
         };
 
+        const roleLabel = String(effectiveUser?.role || "").toUpperCase();
+        const userEmail = String(effectiveUser?.email || "").toLowerCase();
+        const userPermissions = Array.isArray(effectiveUser?.permissions) ? effectiveUser.permissions : [];
+        const hasDeveloperPermission =
+            userPermissions.includes("developer.view") ||
+            userPermissions.includes("menu.developer");
+        const isDeveloperWorkspacePath = pathname.startsWith("/developer");
+        const isDeveloperLikeRole =
+            roleLabel === "COMPANY_ADMIN" ||
+            roleLabel === "DEVELOPER" ||
+            roleLabel === "DEVELOPER_ADMIN" ||
+            roleLabel === "ADMIN" ||
+            userEmail === "dev@dev.com" ||
+            hasDeveloperPermission;
+
         if (effectiveUser?.role === "USER") return filterMenu(MLM_END_USER_MENU);
-        if (effectiveUser?.role === "COMPANY_ADMIN") return filterMenu(COMPANY_ADMIN_MENU);
+        if (isDeveloperWorkspacePath || isDeveloperLikeRole) return filterMenu(COMPANY_ADMIN_MENU);
         if (effectiveWorkspace === "platform") return filterMenu(SUPER_ADMIN_MENU);
         return filterMenu(TENANT_MENU);
-    }, [effectiveUser, effectiveWorkspace]);
+    }, [effectiveUser, effectiveWorkspace, pathname]);
 
     const settingsItems = [
         { name: "General", href: "/admin/settings/general", icon: "Settings", perm: "settings.view" },

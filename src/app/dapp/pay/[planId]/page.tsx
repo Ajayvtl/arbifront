@@ -383,26 +383,7 @@ export default function DappPlanPaymentPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
-          <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
-            <p className="text-[11px] uppercase tracking-wider text-[#5bbcff]">Network</p>
-            <p className="mt-2 text-lg font-bold text-[#f5f5f5]">{channel?.chainName || "-"}</p>
-          </div>
-          <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
-            <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">Asset</p>
-            <p className="mt-2 text-lg font-bold text-[#f5f5f5]">{channel ? `${channel.tokenSymbol} ${channel.paymentAssetType === "erc20" ? "Token" : "Native"}` : "-"}</p>
-          </div>
-          <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
-            <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">Minimum Package</p>
-            <p className="mt-2 text-lg font-bold text-[#f5f5f5]">
-              {channel && packageMinimumAmount > 0 ? `${formatAmount(packageMinimumAmount)} ${channel.tokenSymbol}` : "-"}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
-            <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">Matched Plan</p>
-            <p className="mt-2 text-lg font-bold text-[#f5f5f5]">{matchedPlan?.name || "Not matched"}</p>
-          </div>
-        </div>
+
 
         <div className="rounded-2xl border border-[#1e2329] bg-[#161a20] p-5 shadow md:p-7">
           {loading ? (
@@ -413,6 +394,25 @@ export default function DappPlanPaymentPage() {
           ) : channel ? (
             <div className="grid gap-4 lg:grid-cols-[1.08fr_0.92fr]">
               <div className="space-y-4">
+                <div className="rounded-2xl border border-[#2b3139] bg-[#111418] p-4">
+                  <label className="block text-sm font-medium text-[#f5f5f5]">Enter Amount</label>
+                  <div className="mt-2 flex items-center rounded-2xl border border-[#2b3139] bg-[#161a20] px-4 py-3">
+                    <input
+                      type="number"
+                      min={packageMinimumAmount || undefined}
+                      step="0.0001"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="w-full bg-transparent text-lg font-semibold text-[#f5f5f5] outline-none"
+                      placeholder={`Enter amount in ${channel.tokenSymbol}`}
+                    />
+                    <span className="text-sm font-semibold text-[#f0b90b]">{channel.tokenSymbol}</span>
+                  </div>
+                  <p className="mt-2 text-xs text-[#848e9c]">
+                    Smallest package amount for {channel.tokenSymbol}: {packageMinimumAmount > 0 ? packageMinimumAmount : "-"}
+                  </p>
+                </div>
+
                 <div className="rounded-2xl border border-[#2b3139] bg-[#111418] p-4">
                   <p className="text-xs uppercase tracking-wide text-[#848e9c]">Current Default Chain</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -445,25 +445,6 @@ export default function DappPlanPaymentPage() {
                     <p className="text-xs text-[#848e9c]">Receiver Address</p>
                     <p className="break-all text-sm text-[#b7bdc6]">{channel.receiverAddress}</p>
                   </div>
-                </div>
-
-                <div className="rounded-2xl border border-[#2b3139] bg-[#111418] p-4">
-                  <label className="block text-sm font-medium text-[#f5f5f5]">Enter Amount</label>
-                  <div className="mt-2 flex items-center rounded-2xl border border-[#2b3139] bg-[#161a20] px-4 py-3">
-                    <input
-                      type="number"
-                      min={packageMinimumAmount || undefined}
-                      step="0.0001"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className="w-full bg-transparent text-lg font-semibold text-[#f5f5f5] outline-none"
-                      placeholder={`Enter amount in ${channel.tokenSymbol}`}
-                    />
-                    <span className="text-sm font-semibold text-[#f0b90b]">{channel.tokenSymbol}</span>
-                  </div>
-                  <p className="mt-2 text-xs text-[#848e9c]">
-                    Smallest package amount for {channel.tokenSymbol}: {packageMinimumAmount > 0 ? packageMinimumAmount : "-"}
-                  </p>
                 </div>
               </div>
 

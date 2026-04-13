@@ -1,317 +1,238 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import api from '@/lib/api';
-import toast from 'react-hot-toast';
-import { PlusIcon, PencilIcon, TrashIcon, UserIcon, ShieldCheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { useAuth } from '@/context/AuthContext';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import api from "@/lib/api";
+import toast from "react-hot-toast";
+import { Search, Users, Shield, ShieldOff, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 
-export default function SystemUsersPage() {
-    const { user } = useAuth();
-    const [users, setUsers] = useState<any[]>([]);
-    const [roles, setRoles] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingUser, setEditingUser] = useState<any>(null);
+interface Member {
+  id: number;
+  wallet_address: string;
+  referral_code: string | null;
+  sponsor_id: number | null;
+  status: string;
+  is_blocked: number;
+  created_at: string;
+  main_balance: number | null;
+  earning_balance: number | null;
+  reward_balance: number | null;
+  rank_name: string | null;
+  direct_count: number;
+}
 
-    const [departments, setDepartments] = useState<any[]>([]); // Assuming departments added earlier
-    const [countries, setCountries] = useState<any[]>([]);
-    const [states, setStates] = useState<any[]>([]);
-    const [cities, setCities] = useState<any[]>([]);
-    const [managers, setManagers] = useState<any[]>([]);
-    const [shifts, setShifts] = useState<any[]>([]);
+function shortWallet(addr: string | null) {
+  if (!addr) return "—";
+  return addr.length > 16 ? `${addr.slice(0, 8)}…${addr.slice(-6)}` : addr;
+}
 
-    // Note: Department fetching logic might be needed if departments are used. 
-    // The previous view_file (Step 2349) didn't show department state, but user mentioned "finance" role etc.
-    // I'll stick to Location logic for now to avoid breaking existing flow if not present.
+function fmt(n: number) {
+  if (!Number.isFinite(n) || n === 0) return "0";
+  if (n >= 1_000) return `${(n / 1_000).toFixed(2)}K`;
+  return n.toFixed(2);
+}
 
-    const [formData, setFormData] = useState({
-        name: '', email: '', password: '', role_id: '', phone: '',
-        country_id: '', state_id: '', city_id: '', department_id: '', manager_user_id: '', shift_template_id: ''
-    });
+function fmtDate(v: string) {
+  try {
+    return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(new Date(v));
+  } catch { return v; }
+}
 
-    const inputClass = "w-full border border-gray-300 dark:border-slate-600 rounded-lg p-2.5 dark:bg-slate-900 dark:text-white bg-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all";
+export default function MembersPage() {
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 25;
 
-    useEffect(() => {
-        fetchData();
-        fetchCountries();
-    }, []);
+  const load = useCallback(async (q: string) => {
+    setLoading(true);
+    try {
+      const res = await api.get("/mlm/members", { params: { limit: 500, search: q || undefined } });
+      setMembers((res.data?.data || []) as Member[]);
+    } catch {
+      toast.error("Failed to load members");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    useEffect(() => {
-        if (formData.country_id) fetchStates(formData.country_id);
-        else setStates([]);
-    }, [formData.country_id]);
+  useEffect(() => { void load(appliedSearch); }, [load, appliedSearch]);
 
-    useEffect(() => {
-        if (formData.state_id) fetchCities(formData.country_id, formData.state_id);
-        else setCities([]);
-    }, [formData.state_id]);
+  const totalMembers = members.length;
+  const activeMembers = useMemo(() => members.filter((m) => !m.is_blocked && (m.status === "ACTIVE" || m.status === "active")).length, [members]);
+  const blockedMembers = useMemo(() => members.filter((m) => !!m.is_blocked).length, [members]);
+  const totalTvl = useMemo(() => members.reduce((s, m) => s + Number(m.main_balance || 0) + Number(m.earning_balance || 0), 0), [members]);
 
-    const fetchData = async () => {
-        try {
-            const [usersRes, rolesRes, departmentsRes, shiftsRes] = await Promise.all([
-                api.get('/users?type=system'),
-                api.get('/settings/roles'),
-                api.get('/settings/departments').catch(() => ({ data: { data: [] } })),
-                api.get('/hr/shifts').catch(() => ({ data: { data: [] } }))
-            ]);
-            setUsers(usersRes.data.data);
-            setRoles(rolesRes.data.data);
-            setDepartments(departmentsRes.data.data || []);
-            setShifts(shiftsRes.data.data || []);
-            setManagers(usersRes.data.data || []);
-        } catch (error) {
-            toast.error('Failed to load data');
-        } finally {
-            setLoading(false);
-        }
-    };
+  const totalPages = Math.max(1, Math.ceil(totalMembers / PAGE_SIZE));
+  const paginated = useMemo(() => members.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [members, page]);
 
-    const fetchCountries = async () => {
-        try { const res = await api.get('/master/countries'); setCountries(res.data.data); } catch (e) { }
-    };
-    const fetchStates = async (countryId: any) => {
-        try { const res = await api.get(`/master/states?country_id=${countryId}`); setStates(res.data.data); } catch (e) { }
-    };
-    const fetchCities = async (countryId: any, stateId: any) => {
-        try { const res = await api.get(`/master/cities?country_id=${countryId}&state_id=${stateId}`); setCities(res.data.data); } catch (e) { }
-    };
+  const updateStatus = async (member: Member) => {
+    const newBlocked = member.is_blocked ? 0 : 1;
+    const newStatus = newBlocked ? "REJECTED" : "VERIFIED";
+    try {
+      await api.patch(`/mlm/kyc/${member.id}`, { status: newStatus });
+      toast.success(newBlocked ? "Member blocked" : "Member unblocked");
+      void load(appliedSearch);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to update status";
+      toast.error(msg);
+    }
+  };
 
-    const handleOpenModal = (user: any = null) => {
-        if (user) {
-            setEditingUser(user);
-            setFormData({
-                name: user.name,
-                email: user.email,
-                password: '',
-                role_id: user.role_id,
-                phone: user.phone || '',
-                country_id: user.country_id || '',
-                state_id: user.state_id || '',
-                city_id: user.city_id || '',
-                department_id: user.department_id || '',
-                manager_user_id: user.manager_user_id || '',
-                shift_template_id: user.shift_template_id || ''
-            });
-            // Trigger fetches for existing values
-            if (user.country_id) fetchStates(user.country_id);
-            if (user.country_id && user.state_id) fetchCities(user.country_id, user.state_id);
-        } else {
-            setEditingUser(null);
-            setFormData({ name: '', email: '', password: '', role_id: '', phone: '', country_id: '', state_id: '', city_id: '', department_id: '', manager_user_id: '', shift_template_id: '' });
-        }
-        setIsModalOpen(true);
-    };
+  return (
+    <div className="min-h-screen bg-slate-950 p-4 md:p-8 text-white">
+      <div className="max-w-7xl mx-auto space-y-6">
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            const payload: any = { ...formData };
-            if (!payload.password) delete payload.password;
-            if (!payload.country_id) delete payload.country_id;
-            if (!payload.state_id) delete payload.state_id;
-            if (!payload.city_id) delete payload.city_id;
-            if (!payload.department_id) delete payload.department_id;
-            if (!payload.manager_user_id) delete payload.manager_user_id;
-            if (!payload.shift_template_id) delete payload.shift_template_id;
-
-            if (editingUser) {
-                await api.put(`/users/${editingUser.id}?type=system`, payload);
-                toast.success('User Updated');
-            } else {
-                await api.post('/users?type=system', payload);
-                toast.success('User Created');
-            }
-            setIsModalOpen(false);
-            fetchData();
-        } catch (error: any) {
-            toast.error(error.response?.data?.message || 'Operation failed');
-        }
-    };
-
-    return (
-        <div className="p-8 max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <UserIcon className="w-6 h-6 text-emerald-500" />
-                    System Users
-                </h1>
-                <button
-                    onClick={() => handleOpenModal()}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-lg shadow-emerald-500/20"
-                >
-                    <PlusIcon className="w-5 h-5" />
-                    Add Staff
-                </button>
-            </div>
-
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                    <thead className="bg-gray-50 dark:bg-slate-900/50 text-xs uppercase text-gray-500 dark:text-gray-400">
-                        <tr>
-                            <th className="px-6 py-4">Name</th>
-                            <th className="px-6 py-4">Role</th>
-                            <th className="px-6 py-4">Status</th>
-                            <th className="px-6 py-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-                        {users.map((u: any) => (
-                            <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold">
-                                            {u.name.charAt(0)}
-                                        </div>
-                                        <div>
-                                            <div className="font-medium text-gray-900 dark:text-white">{u.name}</div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400">{u.email}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                                        <ShieldCheckIcon className="w-3 h-3 mr-1" />
-                                        {u.role_name || 'Staff'}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <button
-                                        onClick={async () => {
-                                            if (!confirm('Change user status?')) return;
-                                            try {
-                                                await api.put(`/users/${u.id}?type=system`, { is_active: !u.is_active });
-                                                toast.success('Status updated');
-                                                fetchData();
-                                            } catch (e) { toast.error('Failed to update status'); }
-                                        }}
-                                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full cursor-pointer hover:opacity-80 ${u.is_active ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-800'}`}>
-                                        {u.is_active ? 'Active' : 'Inactive'}
-                                    </button>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <div className="flex justify-end gap-2">
-                                        <button onClick={() => handleOpenModal(u)} className="p-2 text-gray-400 hover:text-emerald-500 transition-colors" title="Edit">
-                                            <PencilIcon className="w-5 h-5" />
-                                        </button>
-                                        {u.id !== 1 && (
-                                            <button
-                                                onClick={async () => {
-                                                    if (!confirm('Delete this user permanently?')) return;
-                                                    try {
-                                                        await api.delete(`/users/${u.id}?type=system`);
-                                                        toast.success('User deleted');
-                                                        fetchData();
-                                                    } catch (e) { toast.error('Failed to delete user'); }
-                                                }}
-                                                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                                                title="Delete"
-                                            >
-                                                <TrashIcon className="w-5 h-5" />
-                                            </button>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
-
-                        <div className="p-6 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center">
-                            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                                {editingUser ? 'Edit User' : 'New System User'}
-                            </h2>
-                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-500 transition-colors">
-                                <XMarkIcon className="w-6 h-6" />
-                            </button>
-                        </div>
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium dark:text-slate-300 mb-1">Name</label>
-                                <input required className={inputClass} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium dark:text-slate-300 mb-1">Email</label>
-                                <input required type="email" className={inputClass} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium dark:text-slate-300 mb-1">Phone</label>
-                                <input className={inputClass} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium dark:text-slate-300 mb-1">Password</label>
-                                <input type="password" className={inputClass} placeholder={editingUser ? "Leave blank to keep same" : "Secure Password"} value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
-                            </div>
-                            <div>
-                                <select required className={inputClass} value={formData.role_id} onChange={e => setFormData({ ...formData, role_id: e.target.value })}>
-                                    <option value="">Select Role</option>
-                                    {roles.map((r: any) => (
-                                        <option key={r.id} value={r.id}>{r.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="grid grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium dark:text-slate-300 mb-1">Department</label>
-                                    <select className={inputClass} value={formData.department_id} onChange={e => setFormData({ ...formData, department_id: e.target.value })}>
-                                        <option value="">All Departments</option>
-                                        {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium dark:text-slate-300 mb-1">Country</label>
-                                    <select className={inputClass} value={formData.country_id} onChange={e => setFormData({ ...formData, country_id: e.target.value, state_id: '', city_id: '' })}>
-                                        <option value="">Global</option>
-                                        {countries.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium dark:text-slate-300 mb-1">State</label>
-                                    <select className={inputClass} value={formData.state_id} onChange={e => setFormData({ ...formData, state_id: e.target.value, city_id: '' })} disabled={!formData.country_id}>
-                                        <option value="">All States</option>
-                                        {states.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium dark:text-slate-300 mb-1">City</label>
-                                    <select className={inputClass} value={formData.city_id} onChange={e => setFormData({ ...formData, city_id: e.target.value })} disabled={!formData.state_id}>
-                                        <option value="">All Cities</option>
-                                        {cities.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium dark:text-slate-300 mb-1">Upper Level (Manager)</label>
-                                    <select className={inputClass} value={formData.manager_user_id} onChange={e => setFormData({ ...formData, manager_user_id: e.target.value })}>
-                                        <option value="">No Manager</option>
-                                        {managers.filter((m: any) => !editingUser || m.id !== editingUser.id).map((m: any) => (
-                                            <option key={m.id} value={m.id}>{m.name} ({m.role_name || 'Role'})</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium dark:text-slate-300 mb-1">Shift Template</label>
-                                    <select className={inputClass} value={formData.shift_template_id} onChange={e => setFormData({ ...formData, shift_template_id: e.target.value })}>
-                                        <option value="">No Shift</option>
-                                        {shifts.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <button type="submit" className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl">
-                                {loading ? 'Saving...' : 'Save User'}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            )}
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Member Registry</h1>
+            <p className="text-sm text-slate-500 mt-1">Live from database · {totalMembers} total members</p>
+          </div>
+          <button type="button" onClick={() => void load(appliedSearch)}
+            className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors">
+            <RefreshCw className="h-4 w-4" /> Refresh
+          </button>
         </div>
-    );
+
+        {/* KPIs */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: "Total Members", value: totalMembers, color: "#5bbcff" },
+            { label: "Active", value: activeMembers, color: "#0ecb81" },
+            { label: "Blocked", value: blockedMembers, color: "#f6465d" },
+            { label: "Platform TVL", value: `$${fmt(totalTvl)}`, color: "#f0b90b" },
+          ].map((c) => (
+            <article key={c.label} className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <p className="text-xs text-slate-500">{c.label}</p>
+              <p className="mt-2 text-2xl font-bold" style={{ color: c.color }}>{c.value}</p>
+            </article>
+          ))}
+        </div>
+
+        {/* Search */}
+        <div className="flex gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { setAppliedSearch(search.trim()); setPage(1); } }}
+              placeholder="Search wallet or referral code…"
+              className="h-11 w-full rounded-2xl border border-slate-700 bg-slate-900 pl-9 pr-3 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition"
+            />
+          </div>
+          <button type="button"
+            onClick={() => { setAppliedSearch(search.trim()); setPage(1); }}
+            className="rounded-2xl border border-slate-700 bg-slate-800 px-5 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">
+            Search
+          </button>
+          {appliedSearch && (
+            <button type="button"
+              onClick={() => { setSearch(""); setAppliedSearch(""); setPage(1); }}
+              className="rounded-2xl border border-rose-800 bg-rose-900/30 px-5 py-2 text-sm font-medium text-rose-300 hover:bg-rose-900/50 transition-colors">
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Table */}
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center py-20 text-slate-500 text-sm animate-pulse">
+              Loading members…
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b border-slate-800 bg-slate-950">
+                  <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500">
+                    <th className="px-4 py-3">Wallet</th>
+                    <th className="px-4 py-3">Referral Code</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Direct Refs</th>
+                    <th className="px-4 py-3">Main Balance</th>
+                    <th className="px-4 py-3">Earning</th>
+                    <th className="px-4 py-3">Rank</th>
+                    <th className="px-4 py-3">Joined</th>
+                    <th className="px-4 py-3">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginated.map((m) => {
+                    const isActive = !m.is_blocked && (m.status === "ACTIVE" || m.status === "active");
+                    return (
+                      <tr key={m.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+                        <td className="px-4 py-3 font-mono text-xs text-slate-300">{shortWallet(m.wallet_address)}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-slate-400">{m.referral_code || "—"}</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                            m.is_blocked
+                              ? "border-rose-700/40 bg-rose-900/30 text-rose-300"
+                              : isActive
+                              ? "border-emerald-700/40 bg-emerald-900/30 text-emerald-300"
+                              : "border-slate-700 bg-slate-800 text-slate-400"
+                          }`}>
+                            {m.is_blocked ? "Blocked" : isActive ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-300">{m.direct_count}</td>
+                        <td className="px-4 py-3 text-emerald-300 font-semibold">${fmt(Number(m.main_balance || 0))}</td>
+                        <td className="px-4 py-3 text-amber-300">${fmt(Number(m.earning_balance || 0))}</td>
+                        <td className="px-4 py-3 text-slate-400 text-xs">{m.rank_name || "—"}</td>
+                        <td className="px-4 py-3 text-slate-500 text-xs">{fmtDate(m.created_at)}</td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => void updateStatus(m)}
+                            title={m.is_blocked ? "Unblock member" : "Block member"}
+                            className={`rounded-lg border px-3 py-1 text-xs font-medium transition-colors ${
+                              m.is_blocked
+                                ? "border-emerald-700 bg-emerald-900/30 text-emerald-300 hover:bg-emerald-900/50"
+                                : "border-rose-700 bg-rose-900/30 text-rose-300 hover:bg-rose-900/50"
+                            }`}
+                          >
+                            {m.is_blocked ? <><ShieldOff className="inline h-3 w-3 mr-1" />Unblock</> : <><Shield className="inline h-3 w-3 mr-1" />Block</>}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {paginated.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="py-16 text-center text-slate-500 text-sm">
+                        <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        No members found{appliedSearch ? ` for "${appliedSearch}"` : ""}.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-800">
+              <p className="text-xs text-slate-500">
+                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalMembers)} of {totalMembers}
+              </p>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+                  className="rounded-lg border border-slate-700 bg-slate-800 p-2 text-slate-400 hover:bg-slate-700 disabled:opacity-40 transition-colors">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="text-xs text-slate-400">Page {page} of {totalPages}</span>
+                <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                  className="rounded-lg border border-slate-700 bg-slate-800 p-2 text-slate-400 hover:bg-slate-700 disabled:opacity-40 transition-colors">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
 }

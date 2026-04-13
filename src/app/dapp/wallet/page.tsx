@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, Loader2, Wallet } from "lucide-react";
+import { ArrowUpRight, Loader2, Radio, Wallet } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
 import { fetchWallet, fetchWalletTransactions } from "@/lib/mlmWalletApi";
@@ -79,6 +79,10 @@ export default function DappWalletPage() {
   const [profileMeta, setProfileMeta] = useState<WalletProfileMeta | null>(null);
 
   const userId = useMemo(() => Number(user?.id || 0), [user?.id]);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [countdown, setCountdown] = useState(60);
+  const countRef = useRef(60);
+  const REFRESH_SECS = 60;
 
   useEffect(() => {
     if (!user) {
@@ -92,8 +96,8 @@ export default function DappWalletPage() {
     if (!userId) return;
 
     let cancelled = false;
-    const load = async () => {
-      setLoading(true);
+    const load = async (silent = false) => {
+      if (!silent) setLoading(true);
       try {
         const [walletData, txData] = await Promise.all([
           fetchWallet(userId),
@@ -104,6 +108,9 @@ export default function DappWalletPage() {
           setWallet(walletData as WalletSnapshot);
           setTransactions((txData || []) as WalletTransaction[]);
           setProfileMeta((profileRes.data?.data || null) as WalletProfileMeta | null);
+          setLastUpdated(new Date());
+          countRef.current = REFRESH_SECS;
+          setCountdown(REFRESH_SECS);
         }
       } catch (error: unknown) {
         const message =
@@ -115,8 +122,17 @@ export default function DappWalletPage() {
       }
     };
     void load();
+    // 60s auto-refresh
+    const interval = setInterval(() => { void load(true); }, REFRESH_SECS * 1000);
+    // countdown tick
+    const tick = setInterval(() => {
+      countRef.current = countRef.current > 0 ? countRef.current - 1 : REFRESH_SECS;
+      setCountdown(countRef.current);
+    }, 1000);
     return () => {
       cancelled = true;
+      clearInterval(interval);
+      clearInterval(tick);
     };
   }, [router, user, userId]);
 
@@ -147,6 +163,13 @@ export default function DappWalletPage() {
               <p className="mt-2 max-w-3xl text-sm text-[#b0d6f5]">
                 View ROI credits, referral income, reward income, and the balances available across each MLM wallet bucket.
               </p>
+              <div className="mt-3 flex items-center gap-2 text-xs text-[#7f95ad]">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                {lastUpdated ? `Live · updated ${lastUpdated.toLocaleTimeString()} · next in ${countdown}s` : "Connecting…"}
+              </div>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <Link href="/dapp/roi" className="text-[#f0b90b] hover:text-[#f8d45c]">ROI tracker</Link>

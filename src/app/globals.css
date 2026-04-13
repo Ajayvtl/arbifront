@@ -55,3 +55,30 @@ body {
   background-color: #475569;
   /* slate-600 */
 }
+
+/* ── Full-width layout for all admin/developer pages ─────────────────────────
+   Every page inside the main content shell should use the full available
+   width. Individual pages may use max-w-* for readability (forms, modals)
+   but the root content wrapper should never be constrained.
+   We override max-w-* at the top-level page div, scoped to <main>.
+────────────────────────────────────────────────────────────────────────────── */
+main > div[class*="max-w-"],
+main > section[class*="max-w-"],
+main > div > div[class*="max-w-7xl"],
+main > div > div[class*="max-w-6xl"] {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+/* Ensure page padding containers stay full width */
+main > div.p-4,
+main > div.p-6,
+main > div.p-8 {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+/* Horizontal overflow safety — tables and charts don't break layout */
+main {
+  overflow-x: hidden;
+}
