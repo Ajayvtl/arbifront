@@ -24,7 +24,7 @@ type WalletSnapshot = {
 type WalletTransaction = {
   id: number;
   amount: number;
-  type: "DEPOSIT" | "WITHDRAW" | "REFERRAL" | "LEVEL" | "ROI" | "REWARD";
+  type: "DEPOSIT" | "WITHDRAW" | "REFERRAL" | "LEVEL" | "ROI" | "ROI_BOOSTER" | "REWARD";
   reference_id: number | null;
   tx_hash: string | null;
   status: string;
@@ -60,6 +60,7 @@ function transactionLabel(tx: WalletTransaction) {
       : {};
   const bonusType = String(meta.bonusType || "");
   if (tx.type === "ROI") return "Daily Income Credit";
+  if (tx.type === "ROI_BOOSTER") return "Booster Slab Income";
   if (tx.type === "REFERRAL" && bonusType === "FAST_START") return "Fast-Start Bonus";
   if (tx.type === "REFERRAL" && bonusType === "JOINING_BONUS") return "Joining Bonus";
   if (tx.type === "REFERRAL" && bonusType === "DIRECT_INCOME") return "Direct Income";

@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
-import { Search, Users, Shield, ShieldOff, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { Search, Users, Shield, ShieldOff, ChevronLeft, ChevronRight, RefreshCw, BarChart3 } from "lucide-react";
 
 interface Member {
   id: number;
@@ -183,18 +184,23 @@ export default function MembersPage() {
                         <td className="px-4 py-3 text-slate-400 text-xs">{m.rank_name || "—"}</td>
                         <td className="px-4 py-3 text-slate-500 text-xs">{fmtDate(m.created_at)}</td>
                         <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            onClick={() => void updateStatus(m)}
-                            title={m.is_blocked ? "Unblock member" : "Block member"}
-                            className={`rounded-lg border px-3 py-1 text-xs font-medium transition-colors ${
-                              m.is_blocked
-                                ? "border-emerald-700 bg-emerald-900/30 text-emerald-300 hover:bg-emerald-900/50"
-                                : "border-rose-700 bg-rose-900/30 text-rose-300 hover:bg-rose-900/50"
-                            }`}
-                          >
-                            {m.is_blocked ? <><ShieldOff className="inline h-3 w-3 mr-1" />Unblock</> : <><Shield className="inline h-3 w-3 mr-1" />Block</>}
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <Link href={`/admin/users/${m.wallet_address}/roi`} className="rounded-lg border border-sky-700 bg-sky-900/30 px-3 py-1 text-xs font-medium text-sky-300 hover:bg-sky-900/50 transition-colors inline-flex items-center">
+                              <BarChart3 className="h-3 w-3 mr-1" /> ROI
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => void updateStatus(m)}
+                              title={m.is_blocked ? "Unblock member" : "Block member"}
+                              className={`rounded-lg border px-3 py-1 text-xs font-medium transition-colors ${
+                                m.is_blocked
+                                  ? "border-emerald-700 bg-emerald-900/30 text-emerald-300 hover:bg-emerald-900/50"
+                                  : "border-rose-700 bg-rose-900/30 text-rose-300 hover:bg-rose-900/50"
+                              }`}
+                            >
+                              {m.is_blocked ? <><ShieldOff className="inline h-3 w-3 mr-1" />Unblock</> : <><Shield className="inline h-3 w-3 mr-1" />Block</>}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

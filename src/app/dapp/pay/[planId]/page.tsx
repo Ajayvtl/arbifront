@@ -369,9 +369,9 @@ export default function DappPlanPaymentPage() {
                 PACKAGE PAYMENT
               </div>
               <h1 className="mt-3 text-2xl md:text-3xl font-extrabold">Confirm Package Payment</h1>
-              <p className="mt-2 max-w-3xl text-sm text-[#b0d6f5]">
+              {/* <p className="mt-2 max-w-3xl text-sm text-[#b0d6f5]">
                 Enter an amount and the system will match it against your configured package ranges, active chain, and payment asset.
-              </p>
+              </p> */}
             </div>
             <div className="w-full sm:w-auto">
               <DappWalletChip

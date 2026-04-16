@@ -254,15 +254,27 @@ export default function DappRoiPage() {
                         </p>
                       </div> */}
                       <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-3">
-                        <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Daily ROI %</p>
+                        <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Base Daily ROI %</p>
                         <p className="mt-1 font-semibold text-[#f5f5f5]">
-                          {sub.workingGainActive && sub.baseDailyIncomePercent !== undefined
-                            ? `${formatPercent(sub.baseDailyIncomePercent, 4)}% -> ${formatPercent(sub.dailyIncomePercent, 4)}%`
-                            : `${formatPercent(sub.dailyIncomePercent, 4)}%`}
+                          {formatPercent(sub.baseDailyIncomePercent ?? sub.dailyIncomePercent, 4)}%
+                        </p>
+                      </div>
+                      {sub.workingGainActive && (
+                        <div className="rounded-xl border border-[#123a62]/30 bg-[#0b1930]/40 p-3">
+                          <p className="text-[11px] uppercase tracking-wide text-[#5bbcff]">Booster Gain %</p>
+                          <p className="mt-1 font-semibold text-[#5bbcff]">
+                            +{formatPercent(sub.workingGainExtraRoiPercent, 4)}%
+                          </p>
+                        </div>
+                      )}
+                      <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-3">
+                        <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Total Daily %</p>
+                        <p className="mt-1 font-semibold text-[#f5f5f5]">
+                          {formatPercent(sub.dailyIncomePercent, 4)}%
                         </p>
                       </div>
                       <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-3">
-                        <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Daily Amount</p>
+                        <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Daily Payout</p>
                         <p className="mt-1 font-semibold text-[#f5f5f5]">{formatTokenAmount(sub.estimatedDailyIncome)} {sub.tokenSymbol}</p>
                       </div>
                       <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-3">
@@ -296,8 +308,8 @@ export default function DappRoiPage() {
                         <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-[#b7bdc6]">
                           <p>Started: {formatDate(sub.startedAt)}</p>
                           <p>Expires: {formatDate(sub.expiresAt)}</p>
-                          <p>Elapsed days: {(Number(sub.elapsedSeconds || 0) / 86400).toFixed(2)}</p>
-                          <p>Remaining days: {sub.remainingDays}</p>
+                          {/* <p>Elapsed days: {(Number(sub.elapsedSeconds || 0) / 86400).toFixed(2)}</p>
+                          <p>Remaining days: {sub.remainingDays}</p> */}
                         </div>
                       </div>
 

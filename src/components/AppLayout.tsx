@@ -5,7 +5,7 @@ import Sidebar from "./Sidebar";
 import TopNavbar from "./TopNavbar";
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 function LayoutContent({
@@ -22,10 +22,18 @@ function LayoutContent({
     const router = useRouter();
     const shouldHideNavigation = isAuthPage || pathname.startsWith('/dapp');
 
-    const hasStoredToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('token'));
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        if (!isLoading && !token && !hasStoredToken && !isAuthPage) {
+        setMounted(true);
+    }, []);
+
+    const hasStoredToken = mounted && Boolean(localStorage.getItem('token'));
+
+    useEffect(() => {
+        if (!mounted || isLoading) return;
+        
+        if (!token && !hasStoredToken && !isAuthPage) {
             if (pathname.startsWith('/dapp')) {
                 router.replace('/dapp/login');
                 return;
@@ -36,7 +44,7 @@ function LayoutContent({
             }
             router.replace('/backend/login');
         }
-    }, [isLoading, token, hasStoredToken, isAuthPage, pathname, router]);
+    }, [isLoading, token, hasStoredToken, isAuthPage, pathname, router, mounted]);
 
     if (isLoading) {
         return (
@@ -46,8 +54,8 @@ function LayoutContent({
         );
     }
 
-    // Prevent flashing of protected content
-    if (!token && !hasStoredToken && !isAuthPage) {
+    // Prevent flashing of protected content only after mounting to avoid hydration mismatch
+    if (mounted && !token && !hasStoredToken && !isAuthPage) {
         return null;
     }
 

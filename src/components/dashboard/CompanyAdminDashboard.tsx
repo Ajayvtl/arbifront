@@ -4,12 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Activity, AlertCircle, ArrowUpRight, BadgeCheck, BarChart3,
-  Clock, Filter, GitBranch, RefreshCw, ShieldCheck, TrendingUp,
-  TrendingDown, Users, Wallet, Zap,
+  Clock, Download, Filter, GitBranch, RefreshCw, ShieldCheck, TrendingUp,
+  TrendingDown, Upload, Users, Wallet, Zap, Database,
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useSettings } from "@/context/SettingsContext";
+import toast from "react-hot-toast";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 interface Member {
@@ -42,7 +43,7 @@ const C = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  ROI: C.amber, DIRECT: C.emerald, LEVEL: C.sky,
+  ROI: C.amber, ROI_BOOSTER: C.pink, DIRECT: C.emerald, LEVEL: C.sky,
   FAST_START: C.violet, WORKING_GAIN: C.orange,
   JOINING_BONUS: C.teal, DEFAULT: "#64748b",
 };
@@ -282,6 +283,11 @@ export default function CompanyAdminDashboard() {
   const countRef = useRef(REFRESH_SECS);
   const historyRef = useRef<HistoryPoint[]>([]);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
+
+  // Backup/Restore State
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Active tab
   const [tab, setTab] = useState<"overview" | "commissions" | "payouts" | "plans" | "members">("overview");
 
@@ -314,6 +320,53 @@ export default function CompanyAdminDashboard() {
       setError(msg);
     } finally { if (!silent) setLoading(false); }
   }, []);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const res = await api.get("/admin/data/export", { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `mlm_backup_${new Date().toISOString().split("T")[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success("Backup downloaded successfully");
+    } catch (err) {
+      toast.error("Export failed");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!window.confirm("CRITICAL: This will overwrite ALL existing data. This project is in PRODUCTION. Are you absolutely sure?")) {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setIsImporting(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      await api.post("/admin/data/import", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      toast.success("System restored perfectly!");
+      void fetchAll(days);
+    } catch (err) {
+      const msg = (err as any)?.response?.data?.message || "Restore failed";
+      toast.error(msg);
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   useEffect(() => { void fetchAll(days); }, [fetchAll, days]);
   useEffect(() => {
@@ -420,6 +473,19 @@ export default function CompanyAdminDashboard() {
                 ))}
               </div>
               <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 mr-2 border-r border-slate-700/50 pr-4">
+                  <button type="button" onClick={handleExport} disabled={isExporting}
+                    className="h-8 px-3 rounded-lg border border-slate-700 bg-slate-800/50 text-[10px] font-bold text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50 transition-all flex items-center gap-1.5 disabled:opacity-50">
+                    <Download className={`h-3 w-3 ${isExporting ? "animate-pulse" : ""}`} /> 
+                    {isExporting ? "Exporting..." : "Export Backup"}
+                  </button>
+                  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isImporting}
+                    className="h-8 px-3 rounded-lg border border-slate-700 bg-slate-800/50 text-[10px] font-bold text-slate-300 hover:text-rose-400 hover:border-rose-500/50 transition-all flex items-center gap-1.5 disabled:opacity-50">
+                    <Upload className={`h-3 w-3 ${isImporting ? "animate-spin" : ""}`} /> 
+                    {isImporting ? "Restoring..." : "Restore Data"}
+                  </button>
+                  <input type="file" ref={fileInputRef} onChange={handleImport} className="hidden" accept=".xlsx" />
+                </div>
                 <LiveBadge lastUpdated={lastUpdated} countdown={countdown} />
                 <button type="button" onClick={() => void fetchAll(days)}
                   className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-emerald-600 hover:text-white transition-all flex items-center gap-1.5">

@@ -158,7 +158,7 @@ export default function DappDashboardPage() {
       const [plansRes, ordersRes, profileRes] = await Promise.all([
         api.get("/payments/plans"),
         api.get("/payments/orders", { params: { limit: 20 } }),
-        api.get("/auth/me"),
+        api.get("/user/profile/summary"),
       ]);
       setPlans((plansRes.data?.data || []) as PlanItem[]);
       setOrders(((ordersRes.data?.data || { items: [] }) as PaginatedOrders).items || []);
@@ -433,11 +433,21 @@ export default function DappDashboardPage() {
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Daily ROI</p>
-                      <p className="text-[#f5f5f5]">{formatPercent(sub.dailyIncomePercent, 4)}%</p>
+                      <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Base Daily</p>
+                      <p className="text-[#f5f5f5]">{formatPercent(sub.baseDailyIncomePercent ?? sub.dailyIncomePercent, 4)}%</p>
+                    </div>
+                    {sub.workingGainActive && (
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide text-[#5bbcff] font-semibold tracking-tighter">Booster Gain</p>
+                        <p className="text-[#5bbcff] font-bold">+{formatPercent(sub.workingGainExtraRoiPercent, 4)}%</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Total Daily</p>
+                      <p className="text-[#f5f5f5] font-semibold">{formatPercent(sub.dailyIncomePercent, 4)}%</p>
                     </div>
                     <div>
-                      <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Per Day Income</p>
+                      <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Daily Payout</p>
                       <p className="text-[#f5f5f5]">{formatTokenAmount(sub.estimatedDailyIncome)} {sub.tokenSymbol}</p>
                     </div>
                     <div>
@@ -533,9 +543,9 @@ export default function DappDashboardPage() {
                     Total return cap on min amount:{" "}
                     {formatTokenAmount(Number(plan.min_amount || 0) * Number(plan.max_return_multiplier || 2))}
                   </p>
-                  <button type="button" onClick={() => router.push(`/dapp/pay/${plan.id}`)} className="mt-4 w-full rounded-lg bg-[#f0b90b] px-3 py-2 font-medium text-[#181a20] hover:bg-[#f8d45c]">
+                  {/* <button type="button" onClick={() => router.push(`/dapp/pay/${plan.id}`)} className="mt-4 w-full rounded-lg bg-[#f0b90b] px-3 py-2 font-medium text-[#181a20] hover:bg-[#f8d45c]">
                     Activate Plan
-                  </button>
+                  </button> */}
                 </div>
               ))}
             </div>
