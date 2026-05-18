@@ -4,6 +4,8 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { PencilLine, Plus, RefreshCcw } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
+import { getCompanyRoleScope } from "@/lib/companyRoleScope";
 import { getWalletTypeLabels, WALLET_TYPE_KEYS, WalletTypeKey } from "@/lib/walletTypeLabels";
 
 type PlanItem = {
@@ -45,6 +47,9 @@ const emptyForm: PlanForm = {
 };
 
 export default function CompanyPlansPage() {
+  const { user } = useAuth();
+  const companyRoleScope = useMemo(() => getCompanyRoleScope(user), [user]);
+  const isReadOnlyAdmin = companyRoleScope === "admin";
   const [plans, setPlans] = useState<PlanItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -85,11 +90,13 @@ export default function CompanyPlansPage() {
   }, [plans]);
 
   const startCreate = () => {
+    if (isReadOnlyAdmin) return;
     setEditingPlanId(null);
     setForm(emptyForm);
   };
 
   const startEdit = (plan: PlanItem) => {
+    if (isReadOnlyAdmin) return;
     const roiWallet = String(plan.roi_credit_balance_type || "roi_balance").trim().toLowerCase() as WalletTypeKey;
     setEditingPlanId(plan.id);
     setForm({
@@ -116,6 +123,10 @@ export default function CompanyPlansPage() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (isReadOnlyAdmin) {
+      toast.error("Admin role has read-only access to plan catalog");
+      return;
+    }
 
     const payload = {
       name: form.name.trim(),
@@ -195,142 +206,148 @@ export default function CompanyPlansPage() {
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4"><p className="text-xs text-slate-500">Max Ticket</p><p className="text-2xl font-semibold">{stats.maxTicket.toFixed(2)}</p></div>
       </div>
 
-      <form onSubmit={submit} className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 md:p-5 space-y-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="text-lg font-semibold">{editingPlanId ? `Edit Plan #${editingPlanId}` : "Create Plan"}</h2>
-          <button
-            type="button"
-            onClick={startCreate}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm hover:border-emerald-500"
-          >
-            <Plus className="w-4 h-4" /> New
-          </button>
+      {isReadOnlyAdmin ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+          Admin role has read-only access to the plan catalog.
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-          <label className="md:col-span-2 space-y-1">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Plan Name</span>
-            <input
-              value={form.name}
-              onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-              placeholder="e.g. Starter, Growth, Pro"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Min Amount</span>
-            <input
-              type="number"
-              min="0"
-              step="0.001"
-              value={form.minAmount}
-              onChange={(e) => setForm((prev) => ({ ...prev, minAmount: e.target.value }))}
-              placeholder="10"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Max Amount</span>
-            <input
-              type="number"
-              min="0"
-              step="0.001"
-              value={form.maxAmount}
-              onChange={(e) => setForm((prev) => ({ ...prev, maxAmount: e.target.value }))}
-              placeholder="100"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-            />
-          </label>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">ROI %</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.roiPercent}
-              onChange={(e) => setForm((prev) => ({ ...prev, roiPercent: e.target.value }))}
-              placeholder="e.g. 30"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Daily Income %</span>
-            <input
-              type="number"
-              min="0"
-              step="0.0001"
-              value={form.dailyIncomePercent}
-              onChange={(e) => setForm((prev) => ({ ...prev, dailyIncomePercent: e.target.value }))}
-              placeholder="e.g. 1"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-            />
-            <p className="mt-1 text-xs text-slate-500">Duration is automatically computed as: (ROI % / Daily Income %)</p>
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Max Return Multiplier</span>
-            <input
-              type="number"
-              min="0.1"
-              step="0.1"
-              value={form.maxReturnMultiplier}
-              onChange={(e) => setForm((prev) => ({ ...prev, maxReturnMultiplier: e.target.value }))}
-              placeholder="e.g. 2.00 for 2x"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Duration (Days)</span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              value={computedDurationDays > 0 ? String(computedDurationDays) : form.durationDays}
-              readOnly
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-            />
-            <p className="mt-1 text-xs text-slate-500">Auto-calculated from ROI % and Daily Income %.</p>
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Payment Currency</span>
-            <select
-              value={form.paymentCurrency}
-              onChange={(e) => setForm((prev) => ({ ...prev, paymentCurrency: e.target.value as "AUTO" | "BNB" | "USDT" }))}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-            >
-              <option value="AUTO">Auto (Current active channel)</option>
-              <option value="BNB">BNB only</option>
-              <option value="USDT">USDT only</option>
-            </select>
-            <p className="mt-1 text-xs text-slate-500">For testing you can set tiny package values like `0.003` and bind them to a specific payment currency.</p>
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">ROI Credit Wallet</span>
-            <select
-              value={form.roiCreditBalanceType}
-              onChange={(e) => setForm((prev) => ({ ...prev, roiCreditBalanceType: e.target.value as WalletTypeKey }))}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-            >
-              {WALLET_TYPE_KEYS.map((key) => (
-                <option key={key} value={key}>{walletTypeLabels[key]}</option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-slate-500">Daily ROI credits for this plan will go into the selected wallet bucket.</p>
-          </label>
-          <div className="md:col-span-3 flex justify-end">
+      ) : (
+        <form onSubmit={submit} className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 md:p-5 space-y-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="text-lg font-semibold">{editingPlanId ? `Edit Plan #${editingPlanId}` : "Create Plan"}</h2>
             <button
-              type="submit"
-              disabled={submitting}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+              type="button"
+              onClick={startCreate}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm hover:border-emerald-500"
             >
-              {editingPlanId ? <PencilLine className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-              {submitting ? "Saving..." : editingPlanId ? "Update Plan" : "Create Plan"}
+              <Plus className="w-4 h-4" /> New
             </button>
           </div>
-        </div>
-      </form>
+
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+            <label className="md:col-span-2 space-y-1">
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Plan Name</span>
+              <input
+                value={form.name}
+                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g. Starter, Growth, Pro"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Min Amount</span>
+              <input
+                type="number"
+                min="0"
+                step="0.001"
+                value={form.minAmount}
+                onChange={(e) => setForm((prev) => ({ ...prev, minAmount: e.target.value }))}
+                placeholder="10"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Max Amount</span>
+              <input
+                type="number"
+                min="0"
+                step="0.001"
+                value={form.maxAmount}
+                onChange={(e) => setForm((prev) => ({ ...prev, maxAmount: e.target.value }))}
+                placeholder="100"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+              />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">ROI %</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.roiPercent}
+                onChange={(e) => setForm((prev) => ({ ...prev, roiPercent: e.target.value }))}
+                placeholder="e.g. 30"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Daily Income %</span>
+              <input
+                type="number"
+                min="0"
+                step="0.0001"
+                value={form.dailyIncomePercent}
+                onChange={(e) => setForm((prev) => ({ ...prev, dailyIncomePercent: e.target.value }))}
+                placeholder="e.g. 1"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+              />
+              <p className="mt-1 text-xs text-slate-500">Duration is automatically computed as: (ROI % / Daily Income %)</p>
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Max Return Multiplier</span>
+              <input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={form.maxReturnMultiplier}
+                onChange={(e) => setForm((prev) => ({ ...prev, maxReturnMultiplier: e.target.value }))}
+                placeholder="e.g. 2.00 for 2x"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Duration (Days)</span>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={computedDurationDays > 0 ? String(computedDurationDays) : form.durationDays}
+                readOnly
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+              />
+              <p className="mt-1 text-xs text-slate-500">Auto-calculated from ROI % and Daily Income %.</p>
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Payment Currency</span>
+              <select
+                value={form.paymentCurrency}
+                onChange={(e) => setForm((prev) => ({ ...prev, paymentCurrency: e.target.value as "AUTO" | "BNB" | "USDT" }))}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+              >
+                <option value="AUTO">Auto (Current active channel)</option>
+                <option value="BNB">BNB only</option>
+                <option value="USDT">USDT only</option>
+              </select>
+              <p className="mt-1 text-xs text-slate-500">For testing you can set tiny package values like `0.003` and bind them to a specific payment currency.</p>
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">ROI Credit Wallet</span>
+              <select
+                value={form.roiCreditBalanceType}
+                onChange={(e) => setForm((prev) => ({ ...prev, roiCreditBalanceType: e.target.value as WalletTypeKey }))}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+              >
+                {WALLET_TYPE_KEYS.map((key) => (
+                  <option key={key} value={key}>{walletTypeLabels[key]}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-500">Daily ROI credits for this plan will go into the selected wallet bucket.</p>
+            </label>
+            <div className="md:col-span-3 flex justify-end">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+              >
+                {editingPlanId ? <PencilLine className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                {submitting ? "Saving..." : editingPlanId ? "Update Plan" : "Create Plan"}
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
 
       <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-auto">
         <table className="min-w-full text-sm">
@@ -347,14 +364,14 @@ export default function CompanyPlansPage() {
               <th className="text-left px-4 py-3">Currency</th>
               <th className="text-left px-4 py-3">ROI Wallet</th>
               <th className="text-left px-4 py-3">Created</th>
-              <th className="text-left px-4 py-3">Action</th>
+              {!isReadOnlyAdmin && <th className="text-left px-4 py-3">Action</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-6 text-slate-500" colSpan={12}>Loading plans...</td></tr>
+              <tr><td className="px-4 py-6 text-slate-500" colSpan={isReadOnlyAdmin ? 11 : 12}>Loading plans...</td></tr>
             ) : plans.length === 0 ? (
-              <tr><td className="px-4 py-6 text-slate-500" colSpan={12}>No plans available.</td></tr>
+              <tr><td className="px-4 py-6 text-slate-500" colSpan={isReadOnlyAdmin ? 11 : 12}>No plans available.</td></tr>
             ) : plans.map((plan) => (
               <tr key={plan.id} className="border-t border-slate-100 dark:border-slate-800">
                 <td className="px-4 py-3">#{plan.id}</td>
@@ -368,15 +385,17 @@ export default function CompanyPlansPage() {
                 <td className="px-4 py-3">{plan.payment_currency || "AUTO"}</td>
                 <td className="px-4 py-3">{walletTypeLabels[(String(plan.roi_credit_balance_type || "roi_balance").trim().toLowerCase() as WalletTypeKey)] || String(plan.roi_credit_balance_type || "roi_balance")}</td>
                 <td className="px-4 py-3">{new Date(plan.created_at).toLocaleDateString()}</td>
-                <td className="px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => startEdit(plan)}
-                    className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs hover:border-emerald-500"
-                  >
-                    <PencilLine className="w-3.5 h-3.5" /> Edit
-                  </button>
-                </td>
+                {!isReadOnlyAdmin && (
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(plan)}
+                      className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs hover:border-emerald-500"
+                    >
+                      <PencilLine className="w-3.5 h-3.5" /> Edit
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

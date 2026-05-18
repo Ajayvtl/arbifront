@@ -12,7 +12,7 @@ type SessionProfile = {
   } | null;
   metrics?: {
     directReferrals?: number;
-    teamCount?: number;
+    teamMembers?: number;
     teamInvestment?: number;
   };
 };
@@ -51,7 +51,7 @@ type LevelIncomeRow = {
   source_user_id?: number | null;
   source_wallet?: string | null;
   source_referral_code?: string | null;
-  package_amount?: number | null;
+  source_daily_roi_estimate?: number | null;
   token_symbol?: string | null;
 };
 
@@ -200,7 +200,7 @@ export default function DappNetworkPage() {
       },
       {
         label: "Total Network",
-        value: Number(profile?.metrics?.teamCount || 0),
+        value: Number(profile?.metrics?.teamMembers || 0),
         icon: Network,
       },
       {
@@ -289,9 +289,8 @@ export default function DappNetworkPage() {
                   key={item.key}
                   type="button"
                   onClick={() => setTab(item.key)}
-                  className={`inline-flex flex-1 items-center justify-center gap-2 rounded-[16px] px-4 py-3 text-sm font-semibold transition ${
-                    tab === item.key ? "bg-[#132033] text-white" : "text-[#8aa4bf] hover:text-white"
-                  }`}
+                  className={`inline-flex flex-1 items-center justify-center gap-2 rounded-[16px] px-4 py-3 text-sm font-semibold transition ${tab === item.key ? "bg-[#132033] text-white" : "text-[#8aa4bf] hover:text-white"
+                    }`}
                 >
                   <item.icon className="h-4 w-4" />
                   {item.label}
@@ -379,12 +378,12 @@ export default function DappNetworkPage() {
                     <tr className="border-b border-[#132235] text-xs uppercase tracking-[0.16em] text-[#5bbcff]">
                       <th className="px-4 py-4">Date</th>
                       <th className="px-4 py-4">Referral</th>
-                      <th className="px-4 py-4">Status</th>
-                      <th className="px-4 py-4">Wallet</th>
                       <th className="px-4 py-4">Paid Amount</th>
+                      <th className="px-4 py-4">%</th>
                       <th className="px-4 py-4">Received</th>
                       <th className="px-4 py-4">Credited To</th>
                       <th className="px-4 py-4">Rule</th>
+                      <th className="px-4 py-4">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -402,16 +401,16 @@ export default function DappNetworkPage() {
                         <tr key={row.id} className="border-b border-[#101b2a] text-sm text-[#dce8f5]">
                           <td className="px-4 py-4">{formatDateTime(row.created_at)}</td>
                           <td className="px-4 py-4">{row.source_referral_code || `User #${row.source_user_id || "-"}`}</td>
+                          <td className="px-4 py-4">{formatAmount(row.amount_paid)} {row.token_symbol || ""}</td>
+                          <td className="px-4 py-4">{row.amount_paid && row.amount_paid > 0 ? ((row.received_amount / row.amount_paid) * 100).toFixed(2) : "0.00"}%</td>
+                          <td className="px-4 py-4 font-semibold text-white">{formatAmount(row.received_amount)}</td>
+                          <td className="px-4 py-4">{balanceLabel(row.credited_balance, profile?.mlmSettings?.wallet_type_labels || null)}</td>
+                          <td className="px-4 py-4">{row.rule_name || "Direct Income"}</td>
                           <td className="px-4 py-4">
                             <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${statusPillClass(row.source_status)}`}>
                               {String(row.source_status || "INACTIVE")}
                             </span>
                           </td>
-                          <td className="px-4 py-4">{shortAddress(row.source_wallet)}</td>
-                          <td className="px-4 py-4">{formatAmount(row.amount_paid)} {row.token_symbol || ""}</td>
-                          <td className="px-4 py-4 font-semibold text-white">{formatAmount(row.received_amount)}</td>
-                          <td className="px-4 py-4">{balanceLabel(row.credited_balance, profile?.mlmSettings?.wallet_type_labels || null)}</td>
-                          <td className="px-4 py-4">{row.rule_name || "Direct Income"}</td>
                         </tr>
                       ))
                     ) : (
@@ -471,10 +470,6 @@ export default function DappNetworkPage() {
                       {expandedDirectRows.includes(row.id) ? (
                         <div className="mt-4 grid gap-3 border-t border-[#132235] pt-4 sm:grid-cols-2">
                           <div>
-                            <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Wallet</p>
-                            <p className="mt-1 text-sm font-medium text-[#dce8f5]">{shortAddress(row.source_wallet)}</p>
-                          </div>
-                          <div>
                             <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Date</p>
                             <p className="mt-1 text-sm font-medium text-[#dce8f5]">{formatDateTime(row.created_at)}</p>
                           </div>
@@ -505,12 +500,13 @@ export default function DappNetworkPage() {
                     <tr className="border-b border-[#132235] text-xs uppercase tracking-[0.16em] text-[#5bbcff]">
                       <th className="px-4 py-4">Date</th>
                       <th className="px-4 py-4">Level</th>
-                      <th className="px-4 py-4">Referral</th>
-                      <th className="px-4 py-4">Status</th>
-                      <th className="px-4 py-4">Wallet</th>
-                      <th className="px-4 py-4">Package</th>
+
+                      {/* <th className="px-4 py-4">Referral</th> */}
+                      <th className="px-4 py-4">Member Daily ROI</th>
+                      <th className="px-4 py-4">commission(%)</th>
                       <th className="px-4 py-4">Received</th>
                       <th className="px-4 py-4">Credited To</th>
+                      <th className="px-4 py-4">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -528,16 +524,18 @@ export default function DappNetworkPage() {
                         <tr key={row.id} className="border-b border-[#101b2a] text-sm text-[#dce8f5]">
                           <td className="px-4 py-4">{formatDateTime(row.created_at)}</td>
                           <td className="px-4 py-4">Level {row.level || "-"}</td>
-                          <td className="px-4 py-4">{row.source_referral_code || `User #${row.source_user_id || "-"}`}</td>
+                          {/* <td className="px-4 py-4">{row.source_referral_code || `User #${row.source_user_id || "-"}`}</td> */}
+
+
+                          <td className="px-4 py-4 font-medium text-[#dce8f5]">{formatAmount(row.source_daily_roi_estimate)}</td>
+                          <td className="px-4 py-4">{Number(row.level_percent || 0).toFixed(2)}%</td>
+                          <td className="px-4 py-4 font-semibold text-white">{formatAmount(row.received_amount)}</td>
+                          <td className="px-4 py-4">{balanceLabel(row.credited_balance, profile?.mlmSettings?.wallet_type_labels || null)}</td>
                           <td className="px-4 py-4">
                             <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${statusPillClass(row.source_status)}`}>
                               {String(row.source_status || "INACTIVE")}
                             </span>
                           </td>
-                          <td className="px-4 py-4">{shortAddress(row.source_wallet)}</td>
-                          <td className="px-4 py-4">{formatAmount(row.package_amount)} {row.token_symbol || ""}</td>
-                          <td className="px-4 py-4 font-semibold text-white">{formatAmount(row.received_amount)}</td>
-                          <td className="px-4 py-4">{balanceLabel(row.credited_balance, profile?.mlmSettings?.wallet_type_labels || null)}</td>
                         </tr>
                       ))
                     ) : (
@@ -601,12 +599,8 @@ export default function DappNetworkPage() {
                             <p className="mt-1 text-sm font-medium text-[#dce8f5]">{row.source_referral_code || `User #${row.source_user_id || "-"}`}</p>
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Wallet</p>
-                            <p className="mt-1 text-sm font-medium text-[#dce8f5]">{shortAddress(row.source_wallet)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Package Amount</p>
-                            <p className="mt-1 text-sm font-medium text-white">{formatAmount(row.package_amount)} {row.token_symbol || ""}</p>
+                            <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Member Daily ROI</p>
+                            <p className="mt-1 text-sm font-medium text-white">{formatAmount(row.source_daily_roi_estimate)}</p>
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Level %</p>

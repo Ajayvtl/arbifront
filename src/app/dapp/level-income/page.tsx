@@ -20,6 +20,7 @@ type Pagination = {
   limit: number;
   total: number;
   totalPages: number;
+  activeDirectCount?: number;
 };
 
 type LevelIncomeRow = {
@@ -87,6 +88,7 @@ export default function DappLevelIncomePage() {
     limit: 10,
     total: 0,
     totalPages: 1,
+    activeDirectCount: 0,
   });
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
@@ -192,9 +194,19 @@ export default function DappLevelIncomePage() {
                 This ledger shows level-wise income credited from your network members&apos; ROI.
               </p>
             </div>
-            <div className="rounded-2xl border border-[#1b3452] bg-[#0b1930] px-4 py-3 text-sm text-[#d9efff]">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[#5bbcff]">This Page Total</p>
-              <p className="mt-1 font-semibold text-lg">{formatAmount(totalReceived)}</p>
+            <div className="flex flex-wrap gap-4">
+              <div className="rounded-2xl border border-[#1b3452] bg-[#0b1930] px-4 py-3 text-sm text-[#d9efff]">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[#5bbcff]">Active Directs</p>
+                <p className="mt-1 font-semibold text-lg">{pagination.activeDirectCount ?? 0}</p>
+              </div>
+              <div className="rounded-2xl border border-[#1b3452] bg-[#0b1930] px-4 py-3 text-sm text-[#d9efff]">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[#a066ff]">Max Eligible Level</p>
+                <p className="mt-1 font-semibold text-lg">Level {pagination.activeDirectCount ?? 0}</p>
+              </div>
+              <div className="rounded-2xl border border-[#1b3452] bg-[#0b1930] px-4 py-3 text-sm text-[#d9efff]">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[#5bbcff]">This Page Total</p>
+                <p className="mt-1 font-semibold text-lg">{formatAmount(totalReceived)}</p>
+              </div>
             </div>
           </div>
           <div className="mt-4 flex flex-wrap gap-3 text-sm">
@@ -281,10 +293,8 @@ export default function DappLevelIncomePage() {
                   <th className="px-4 py-4">Date</th>
                   <th className="px-4 py-4">Status</th>
                   <th className="px-4 py-4">Level</th>
-                  <th className="px-4 py-4">Level %</th>
+                  <th className="px-4 py-4">% (Configured)</th>
                   <th className="px-4 py-4">Referral</th>
-                  <th className="px-4 py-4">Wallet</th>
-                  <th className="px-4 py-4">Package</th>
                   <th className="px-4 py-4">Member Daily ROI</th>
                   <th className="px-4 py-4">Member Est. Total ROI</th>
                   <th className="px-4 py-4">Member Credited ROI</th>
@@ -295,7 +305,7 @@ export default function DappLevelIncomePage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={12} className="px-4 py-10 text-center text-[#8aa4bf]">
+                    <td colSpan={10} className="px-4 py-10 text-center text-[#8aa4bf]">
                       <span className="inline-flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Loading level income...
@@ -307,16 +317,19 @@ export default function DappLevelIncomePage() {
                     <tr key={row.id} className="border-b border-[#101b2a] text-sm text-[#dce8f5]">
                       <td className="px-4 py-4">{formatDateTime(row.created_at)}</td>
                       <td className="px-4 py-4">
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${payoutBadgeClass(String(row.payout_status || "NONE"))}`}>
-                          {String(row.payout_status || "NONE")}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${payoutBadgeClass(String(row.payout_status || "NONE"))}`}>
+                            {String(row.payout_status || "NONE")}
+                          </span>
+                          {row.payout_status === "MISSED" && Number(row.level || 0) > Number(pagination.activeDirectCount || 0) && (
+                            <span className="text-[9px] text-rose-400/80 font-medium">Insufficient Directs</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-4">Level {row.level || "-"}</td>
                       <td className="px-4 py-4">{Number(row.configured_level_percent || 0).toFixed(2)}%</td>
                       <td className="px-4 py-4">{row.source_referral_code || `User #${row.source_user_id || "-"}`}</td>
-                      <td className="px-4 py-4">{shortAddress(row.source_wallet)}</td>
-                      <td className="px-4 py-4">{formatAmount(row.package_amount)} {row.token_symbol || ""}</td>
-                      <td className="px-4 py-4">{formatAmount(row.source_daily_roi_estimate)}</td>
+                      <td className="px-4 py-4 font-medium text-[#dce8f5]">{formatAmount(row.source_daily_roi_estimate)}</td>
                       <td className="px-4 py-4">{formatAmount(row.source_estimated_total_roi)}</td>
                       <td className="px-4 py-4">{formatAmount(row.source_total_roi_credited)}</td>
                       <td className="px-4 py-4 font-semibold text-white">{formatAmount(row.received_amount)}</td>
@@ -325,7 +338,7 @@ export default function DappLevelIncomePage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={12} className="px-4 py-10 text-center text-[#8aa4bf]">
+                    <td colSpan={10} className="px-4 py-10 text-center text-[#8aa4bf]">
                       No level income found for the selected filters.
                     </td>
                   </tr>
@@ -370,14 +383,17 @@ export default function DappLevelIncomePage() {
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Status</p>
-                      <p className="mt-1">
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${payoutBadgeClass(String(row.payout_status || "NONE"))}`}>
-                          {String(row.payout_status || "NONE")}
-                        </span>
-                      </p>
+                    <div className="mt-1 flex flex-col gap-1 items-start">
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${payoutBadgeClass(String(row.payout_status || "NONE"))}`}>
+                        {String(row.payout_status || "NONE")}
+                      </span>
+                      {row.payout_status === "MISSED" && Number(row.level || 0) > Number(pagination.activeDirectCount || 0) && (
+                        <span className="text-[9px] text-rose-400/80 font-medium">Insufficient Directs</span>
+                      )}
+                    </div>
                     </div>
                       <div>
-                        <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Configured Level %</p>
+                        <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">% (Configured)</p>
                         <p className="mt-1 text-sm font-medium text-[#dce8f5]">{Number(row.configured_level_percent || 0).toFixed(2)}%</p>
                       </div>
                       <div>
@@ -398,14 +414,6 @@ export default function DappLevelIncomePage() {
                       <div>
                         <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Referral</p>
                         <p className="mt-1 text-sm font-medium text-[#dce8f5]">{row.source_referral_code || `User #${row.source_user_id || "-"}`}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Wallet</p>
-                        <p className="mt-1 text-sm font-medium text-[#dce8f5]">{shortAddress(row.source_wallet)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Package Amount</p>
-                        <p className="mt-1 text-sm font-medium text-white">{formatAmount(row.package_amount)} {row.token_symbol || ""}</p>
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Level %</p>

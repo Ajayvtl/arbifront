@@ -8,11 +8,11 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import api from '@/lib/api';
 import { usePathname } from "next/navigation";
+import { getCompanyRoleScope } from "@/lib/companyRoleScope";
 
 export default function TopNavbar() {
     const { user, logout, currentHotel, availableHotels } = useAuth();
     const pathname = usePathname();
-    // ... hooks
     const { isDarkMode, toggleTheme, increaseFontSize, decreaseFontSize, toggleSidebar, sidebarCollapsed } = useTheme();
     const { settings, setResult } = useSettings();
     const [ipAddress, setIpAddress] = useState<string>('Loading...');
@@ -22,11 +22,13 @@ export default function TopNavbar() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [showNotifMenu, setShowNotifMenu] = useState(false);
     const [workspaceMode, setWorkspaceMode] = useState<"platform" | "tenant">("platform");
+    const [mounted, setMounted] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
     const langRef = useRef<HTMLDivElement>(null);
     const notifRef = useRef<HTMLDivElement>(null);
 
     const superAdminCanSwitchWorkspace = user?.role_id === 1 && availableHotels.length > 0;
+    const companyRoleScope = mounted ? getCompanyRoleScope(user) : "unknown";
     const isPlatformWorkspace = user?.role_id === 1
         ? workspaceMode === "platform"
         : !currentHotel;
@@ -55,12 +57,16 @@ export default function TopNavbar() {
         .filter(Boolean)
         .map((seg, idx, arr) => {
             const href = `/${arr.slice(0, idx + 1).join("/")}`;
+            if (seg === "developer" && companyRoleScope === "admin") {
+                return { href, label: "Admin" };
+            }
             const mapped = segmentLabelMap[seg];
             const label = mapped || seg.replace(/-/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
             return { href, label };
         });
 
     useEffect(() => {
+        setMounted(true);
         const savedMode = localStorage.getItem("workspace_mode");
         if (savedMode === "tenant" || savedMode === "platform") {
             setWorkspaceMode(savedMode);
@@ -102,7 +108,6 @@ export default function TopNavbar() {
         window.location.href = "/select-hotel";
     };
 
-    // Fetch Notifications
     const fetchNotifications = async () => {
         try {
             const { data } = await api.get('/notifications');
@@ -116,7 +121,6 @@ export default function TopNavbar() {
     useEffect(() => {
         if (user && currentHotel) {
             fetchNotifications();
-            // Optional: Poll every 30s
             const interval = setInterval(fetchNotifications, 30000);
             return () => clearInterval(interval);
         } else {
@@ -128,7 +132,7 @@ export default function TopNavbar() {
     const markRead = async (id: number) => {
         try {
             await api.put(`/notifications/${id}/read`);
-            fetchNotifications(); // Refresh to update count/status
+            fetchNotifications();
         } catch (e) { }
     };
 
@@ -320,14 +324,18 @@ export default function TopNavbar() {
                         className="flex items-center gap-3 pl-4 border-l border-slate-200 dark:border-slate-700 hover:opacity-80 transition-opacity"
                     >
                         <div className="text-right hidden md:block">
-                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">{user?.name || 'User'}</p>
-                            <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-500 font-bold">{user?.role_name || 'Admin'}</p>
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">
+                                {mounted ? (user?.name || 'User') : 'User'}
+                            </p>
+                            <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-500 font-bold">
+                                {mounted ? (user?.role_name || 'Admin') : 'Admin'}
+                            </p>
                         </div>
                         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900 dark:to-teal-900 flex items-center justify-center text-emerald-700 dark:text-emerald-300 font-bold border-2 border-white dark:border-slate-800 shadow-sm overflow-hidden">
-                            {user?.avatar ? (
+                            {mounted && user?.avatar ? (
                                 <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
                             ) : (
-                                user?.name?.charAt(0) || 'U'
+                                (mounted ? (user?.name?.charAt(0) || 'U') : 'U')
                             )}
                         </div>
                     </button>
@@ -336,8 +344,8 @@ export default function TopNavbar() {
                     {showProfileMenu && (
                         <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 py-1 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                             <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 md:hidden">
-                                <p className="text-sm font-semibold text-slate-800 dark:text-white">{user?.name}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">{user?.email}</p>
+                                <p className="text-sm font-semibold text-slate-800 dark:text-white">{mounted ? user?.name : ''}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{mounted ? user?.email : ''}</p>
                             </div>
 
                             <Link

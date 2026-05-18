@@ -8,6 +8,7 @@ export interface AppMenuItem {
     module?: string;
     section?: string;
     exact?: boolean;
+    roleScope?: "admin" | "developer" | "all";
     permissions?: string[];
     children?: AppMenuItem[];
 }
@@ -19,6 +20,7 @@ export const SUPER_ADMIN_MENU: AppMenuItem[] = [
     { section: "Platform", name: "Dashboard", href: "/admin/dashboard", icon: "LayoutDashboard" },
     { section: "Platform", name: "Admin Access", href: "/admin/platform-admins", icon: "Shield", module: "users" },
     { section: "Monitoring", name: "Blockchain Events", href: "/admin/developer/operations", icon: "Activity", module: "developer" },
+    { section: "Monitoring", name: "Formulation System", href: "/admin/settings/formula", icon: "FlaskConical" },
     { section: "System", name: "Reports", href: "/admin/reports", icon: "BarChart3" },
     { section: "System", name: "Global Settings", href: "/admin/settings/general", icon: "GlobeAltIcon", module: "settings" },
     // MLM quick-access (read-only overview — full management is in Developer scope)
@@ -49,25 +51,32 @@ export const MLM_END_USER_MENU: AppMenuItem[] = [
 
 // MLM Company Admin (Tenant Company) Menu
 export const COMPANY_ADMIN_MENU: AppMenuItem[] = [
-    { section: "Developer", name: "Command Center", href: "/developer/dashboard", icon: "LayoutDashboard" },
-    { section: "Developer", name: "Member Registry", href: "/developer/company/members", icon: "Users" },
-    { section: "Developer", name: "Commission Runs", href: "/developer/company/commissions", icon: "Calculator" },
+    { section: "Developer", name: "Command Center", href: "/developer/dashboard", icon: "LayoutDashboard", roleScope: "admin" },
+    { section: "Developer", name: "Member Registry", href: "/developer/company/members", icon: "Users", roleScope: "admin" },
+    { section: "Developer", name: "Commission Runs", href: "/developer/company/commissions", icon: "Calculator", roleScope: "admin" },
     { section: "Developer", name: "Sponsor Income Logs", href: "/developer/company/direct-income", icon: "Wallet" },
     { section: "Developer", name: "Sponsor Income Rules", href: "/developer/company/direct-income-rule", icon: "Settings" },
     { section: "Developer", name: "ROI Increment Rules", href: "/admin/company/booster", icon: "Settings" },
+    { section: "Developer", name: "Calculations", href: "/developer/company/calculations", icon: "Calculator" },
+    { section: "Developer", name: "Future Features", href: "/developer/company/placeholder", icon: "FlaskConical" },
     { section: "Developer", name: "ROI Increment Logs", href: "/developer/company/working-gain", icon: "BarChart3" },
-    { section: "Developer", name: "Level Income", href: "/developer/company/level-income", icon: "GitBranch" },
-    { section: "Developer", name: "Payment Logs", href: "/developer/company/transactions", icon: "Wallet" },
-    { section: "Developer", name: "Payout Queue", href: "/developer/company/payouts", icon: "FileText" },
+    { section: "Developer", name: "Matching Inc", href: "/developer/company/matching-inc", icon: "GitBranch" },
+    { section: "Developer", name: "Level Income", href: "/developer/company/level-income", icon: "GitBranch", roleScope: "admin" },
+    { section: "Developer", name: "Payment Logs", href: "/developer/company/transactions", icon: "Wallet", roleScope: "admin" },
+    { section: "Developer", name: "Payout Queue", href: "/developer/company/payouts", icon: "FileText", roleScope: "admin" },
     { section: "Developer", name: "E-Wallet Ledger", href: "/developer/company/ledger", icon: "CircleStackIcon" },
     { section: "Developer", name: "ROI & Payment Mode", href: "/developer/company/bonuses", icon: "Tag" },
+    { section: "Developer", name: "ROI Credit Scheduler", href: "/developer/company/roi-credit", icon: "Activity" },
     { section: "Developer", name: "Joining Bonus", href: "/developer/company/joining-bonus", icon: "Tag" },
     { section: "Developer", name: "Fast-Start Bonus", href: "/developer/company/fast-start-bonus", icon: "Activity" },
-    { section: "Developer", name: "Plan Catalog", href: "/developer/company/plans", icon: "ShoppingBag" },
+    { section: "Developer", name: "Plan Catalog", href: "/developer/company/plans", icon: "ShoppingBag", roleScope: "admin" },
+    { section: "Developer", name: "Rank & Reward", href: "/developer/company/ranks", icon: "Shield", roleScope: "admin" },
     { section: "Developer", name: "Wallet Types", href: "/developer/company/wallet-types", icon: "Wallet" },
     { section: "Developer", name: "Network Settings", href: "/developer/company/network-settings", icon: "Activity" },
+    { section: "Developer", name: "Exch", href: "/developer/company/exch", icon: "ArrowLeftRight" },
     { section: "Developer", name: "Testing Tools", href: "/developer/company/testing", icon: "FlaskConical" },
-    { section: "Developer", name: "Company Settings", href: "/developer/settings/general", icon: "Settings" },
+    { section: "Developer", name: "Formulation System", href: "/admin/settings/formula", icon: "FlaskConical", roleScope: "developer" },
+    { section: "Developer", name: "Company Settings", href: "/developer/settings/general", icon: "Settings", roleScope: "developer" },
 ];
 
 // HMIS Menu Structure (for Tenant Admins/Staff)

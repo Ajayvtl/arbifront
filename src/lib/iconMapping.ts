@@ -2,7 +2,7 @@ import {
     LayoutDashboard, FlaskConical, ShoppingCart, FileText, Users,
     Settings, LogOut, Activity, MapPin, Tag, Image as ImageIcon,
     Shield, Smartphone, Building2, BarChart3, Calculator, ShoppingBag, CreditCard, Wallet, GitBranch,
-    MessageSquare, UserCircle, Bell
+    MessageSquare, UserCircle, Bell, ArrowLeftRight
 } from "lucide-react";
 import { UserGroupIcon, GlobeAltIcon, CircleStackIcon } from '@heroicons/react/24/outline';
 import type { ComponentType } from "react";
@@ -33,5 +33,6 @@ export const IconMap: Record<string, ComponentType<Record<string, unknown>>> = {
     "GitBranch": GitBranch,
     "UserGroupIcon": UserGroupIcon,
     "GlobeAltIcon": GlobeAltIcon,
-    "CircleStackIcon": CircleStackIcon
+    "CircleStackIcon": CircleStackIcon,
+    "ArrowLeftRight": ArrowLeftRight
 };

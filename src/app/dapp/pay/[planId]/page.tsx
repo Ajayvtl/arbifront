@@ -458,11 +458,11 @@ export default function DappPlanPaymentPage() {
                       <p className="mt-2 text-sm text-[#b7bdc6]">
                         Investment Range: {formatAmount(Number(matchedPlan.min_amount || 0))} - {formatAmount(Number(matchedPlan.max_amount || matchedPlan.min_amount || 0))} {channel.tokenSymbol}
                       </p>
-                      <p className="text-sm text-[#b7bdc6]">ROI: {formatPercent(matchedPlan.roi_percent, 2)}%</p>
+                      <p className="text-sm text-[#b7bdc6]">ROI: {formatPercent(Number(matchedPlan.roi_percent || 0) / 2, 2)}%</p>
                       <p className="text-sm text-[#b7bdc6]">
                         Daily Income: {formatPercent((matchedPlan.daily_income_percent ?? matchedPlan.roi_percent) || 0, 4)}%
                       </p>
-                      <p className="text-sm text-[#b7bdc6]">Duration: {matchedPlan.duration_days || 30} days</p>
+                      {/* <p className="text-sm text-[#b7bdc6]">Duration: {matchedPlan.duration_days || 30} days</p> */}
                       <p className="mt-3 text-xs text-[#848e9c]">
                         Estimated payout on entered amount: {formatTokenAmount(Number(amount || 0) * (Number(matchedPlan.roi_percent || 0) / 100))} {channel.tokenSymbol}
                       </p>

@@ -5,11 +5,12 @@ import Link from "next/link";
 import {
   Activity, AlertCircle, ArrowUpRight, BadgeCheck, BarChart3,
   Clock, Download, Filter, GitBranch, RefreshCw, ShieldCheck, TrendingUp,
-  TrendingDown, Upload, Users, Wallet, Zap, Database,
+  TrendingDown, Upload, Users, Wallet, Zap, Database, Trash2,
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useSettings } from "@/context/SettingsContext";
+import { getCompanyRoleScope } from "@/lib/companyRoleScope";
 import toast from "react-hot-toast";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -33,6 +34,19 @@ interface Plan {
 interface HistoryPoint {
   ts: number; totalMembers: number; activeMembers: number;
   totalCommission: number; pendingPayouts: number; tvl: number;
+}
+
+interface ExchangeActiveSummary {
+  profileId: number;
+  profileName: string;
+  reserveWallet: string;
+  assetMode: "TOKEN" | "COIN";
+  nativeSymbol: string;
+  usdtSymbol: string;
+  customSymbol: string;
+  balances: { bnb: string; usdt: string; token: string };
+  liveRate: { source: string; symbol: string; rateUsd: number };
+  chain: { chainId: number | null; explorerUrl: string } | null;
 }
 
 // ─── Palette ────────────────────────────────────────────────────────────────
@@ -269,10 +283,17 @@ const REFRESH_SECS = 60;
 export default function CompanyAdminDashboard() {
   const { user } = useAuth();
   const { settings: siteSettings } = useSettings();
+  const companyRoleScope = useMemo(() => getCompanyRoleScope(user), [user]);
   const companyName = siteSettings.site_name || siteSettings.brand_name || "Admin Dashboard";
 
   const [members, setMembers] = useState<Member[]>([]);
-  const [commission, setCommission] = useState<{ totals: CommissionType[]; topEarners: TopEarner[] } | null>(null);
+  const [commission, setCommission] = useState<{ 
+    totals: CommissionType[]; 
+    topEarners: TopEarner[];
+    totalInvestment: number;
+    totalInvestmentPeriod: number;
+    totalDailyRoiPayout: number;
+  } | null>(null);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -283,6 +304,22 @@ export default function CompanyAdminDashboard() {
   const countRef = useRef(REFRESH_SECS);
   const historyRef = useRef<HistoryPoint[]>([]);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
+  const [exchangeSummary, setExchangeSummary] = useState<ExchangeActiveSummary | null>(null);
+  const [exchangeLoading, setExchangeLoading] = useState(false);
+
+  const reloadExchangeSummary = useCallback(async () => {
+    setExchangeLoading(true);
+    try {
+      const exchRes = await api.get("/admin/exchange-config/active-summary");
+      setExchangeSummary((exchRes.data?.data || null) as ExchangeActiveSummary | null);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to load exchange summary";
+      toast.error(msg);
+      setExchangeSummary(null);
+    } finally {
+      setExchangeLoading(false);
+    }
+  }, []);
 
   // Backup/Restore State
   const [isExporting, setIsExporting] = useState(false);
@@ -290,6 +327,11 @@ export default function CompanyAdminDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Active tab
   const [tab, setTab] = useState<"overview" | "commissions" | "payouts" | "plans" | "members">("overview");
+  
+  // Clear members state
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [clearConfirmCode, setClearConfirmCode] = useState("");
+  const [isClearing, setIsClearing] = useState(false);
 
   const fetchAll = useCallback(async (d: number, silent = false) => {
     if (!silent) setLoading(true);
@@ -302,7 +344,13 @@ export default function CompanyAdminDashboard() {
         api.get("/mlm/plans", { params: { limit: 200 } }),
       ]);
       const m = (mRes.data?.data || []) as Member[];
-      const c = (cRes.data?.data || null) as { totals: CommissionType[]; topEarners: TopEarner[] } | null;
+      const c = (cRes.data?.data || null) as { 
+        totals: CommissionType[]; 
+        topEarners: TopEarner[]; 
+        totalInvestment: number; 
+        totalInvestmentPeriod: number; 
+        totalDailyRoiPayout: number; 
+      } | null;
       const p = (pRes.data?.data || []) as Payout[];
       const pl = (plRes.data?.data || []) as Plan[];
       setMembers(m); setCommission(c); setPayouts(p); setPlans(pl);
@@ -315,6 +363,17 @@ export default function CompanyAdminDashboard() {
       const pt: HistoryPoint = { ts: Date.now(), totalMembers: m.length, activeMembers: active, totalCommission: commTotal, pendingPayouts: pending, tvl };
       historyRef.current = [...historyRef.current.slice(-59), pt];
       setHistory([...historyRef.current]);
+
+      // Load active exchange reserve wallet summary (non-fatal)
+      setExchangeLoading(true);
+      try {
+        const exchRes = await api.get("/admin/exchange-config/active-summary");
+        setExchangeSummary((exchRes.data?.data || null) as ExchangeActiveSummary | null);
+      } catch {
+        setExchangeSummary(null);
+      } finally {
+        setExchangeLoading(false);
+      }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to load dashboard";
       setError(msg);
@@ -368,6 +427,27 @@ export default function CompanyAdminDashboard() {
     }
   };
 
+  const handleClearMembers = async () => {
+    if (clearConfirmCode !== "CLEAR") {
+      toast.error("Please type CLEAR to confirm");
+      return;
+    }
+    
+    setIsClearing(true);
+    try {
+      await api.post("/admin/data/clear-members");
+      toast.success("All member data cleared cleanly!");
+      setShowClearModal(false);
+      setClearConfirmCode("");
+      void fetchAll(days);
+    } catch (err) {
+      const msg = (err as any)?.response?.data?.message || "Clear failed";
+      toast.error(msg);
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   useEffect(() => { void fetchAll(days); }, [fetchAll, days]);
   useEffect(() => {
     const iv = setInterval(() => void fetchAll(days, true), REFRESH_SECS * 1000);
@@ -387,6 +467,9 @@ export default function CompanyAdminDashboard() {
 
   const commTotals = useMemo(() => commission?.totals || [], [commission]);
   const topEarners = useMemo(() => (commission?.topEarners || []).slice(0, 10), [commission]);
+  const totalInvestment = useMemo(() => commission?.totalInvestment || 0, [commission]);
+  const totalInvestmentPeriod = useMemo(() => commission?.totalInvestmentPeriod || 0, [commission]);
+  const totalDailyRoiPayout = useMemo(() => commission?.totalDailyRoiPayout || 0, [commission]);
   const totalCommission = useMemo(() => commTotals.reduce((s, t) => s + Number(t.total_amount || 0), 0), [commTotals]);
   const totalTxns = useMemo(() => commTotals.reduce((s, t) => s + Number(t.total_count || 0), 0), [commTotals]);
 
@@ -485,6 +568,10 @@ export default function CompanyAdminDashboard() {
                     {isImporting ? "Restoring..." : "Restore Data"}
                   </button>
                   <input type="file" ref={fileInputRef} onChange={handleImport} className="hidden" accept=".xlsx" />
+                  <button type="button" onClick={() => setShowClearModal(true)}
+                    className="h-8 px-3 rounded-lg border border-rose-700/50 bg-rose-900/10 text-[10px] font-bold text-rose-300 hover:text-rose-400 hover:bg-rose-900/30 transition-all flex items-center gap-1.5">
+                    <Trash2 className="h-3 w-3" /> Clear Members
+                  </button>
                 </div>
                 <LiveBadge lastUpdated={lastUpdated} countdown={countdown} />
                 <button type="button" onClick={() => void fetchAll(days)}
@@ -497,12 +584,13 @@ export default function CompanyAdminDashboard() {
         </header>
 
         {/* ── KPI Row ─────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
-          <KpiCard label="Total Members" value={totalMembers.toLocaleString()} sub={`${activeMembers} active`} icon={Users} color={C.emerald} history={hMembers} />
-          <KpiCard label="Active Members" value={activeMembers.toLocaleString()} sub={`${pct(activeMembers, totalMembers)}% of base`} icon={Activity} color={C.sky} history={hActive} />
-          <KpiCard label={`Commission ${days}d`} value={`$${fmt(totalCommission)}`} sub={`${totalTxns} txns`} icon={TrendingUp} color={C.amber} history={hComm} />
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          <KpiCard label="Total Investment" value={`$${fmt(totalInvestment)}`} sub={`$${fmt(totalInvestmentPeriod)} last ${days}d`} icon={BarChart3} color={C.emerald} history={[]} />
+          <KpiCard label="Daily ROI Payout" value={`$${fmt(totalDailyRoiPayout)}`} sub="Scheduled today" icon={Zap} color={C.amber} history={[]} />
+          <KpiCard label="User Base" value={`${activeMembers} / ${totalMembers}`} sub={`${pct(activeMembers, totalMembers)}% active`} icon={Users} color={C.sky} history={hMembers} />
+          <KpiCard label={`Comms ${days}d`} value={`$${fmt(totalCommission)}`} sub={`${totalTxns} entries`} icon={TrendingUp} color={C.amber} history={hComm} />
           <KpiCard label="Pending Payouts" value={payoutByStatus.pending.length.toString()} sub={`$${fmt(payoutByStatus.pendingNet)} net`} icon={Clock} color={C.orange} history={hPending} />
-          <KpiCard label="Outstanding Balances" value={`$${fmt(tvl)}`} sub="User wallet credits" icon={Wallet} color={C.violet} history={hTvl} />
+          <KpiCard label="O/S Balances" value={`$${fmt(tvl)}`} sub="User wallet credits" icon={Wallet} color={C.violet} history={hTvl} />
         </div>
 
         {/* ── Tabs ────────────────────────────────────────────────────── */}
@@ -613,6 +701,81 @@ export default function CompanyAdminDashboard() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Exchange Reserve Wallet Summary */}
+            <div className="rounded-2xl border border-slate-800 bg-[#0d1626] p-5">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4.5 w-4.5 text-emerald-400" />
+                  <div>
+                    <h2 className="text-sm font-semibold">Exchange Reserve Wallet</h2>
+                    <p className="text-[11px] text-slate-500">Live balances + live rate from configured source</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void reloadExchangeSummary()}
+                  className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-emerald-600 hover:text-white transition-all flex items-center gap-1.5 disabled:opacity-50"
+                  disabled={exchangeLoading}
+                >
+                  <RefreshCw className={`h-3 w-3 ${exchangeLoading ? "animate-spin" : ""}`} /> Refresh
+                </button>
+              </div>
+
+              {!exchangeSummary ? (
+                <div className="text-xs text-slate-500">
+                  No active exchange profile (or insufficient permissions).
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                  <div className="md:col-span-5 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Reserve Address</div>
+                    <div className="mt-1 font-mono text-xs text-slate-200 break-all">{exchangeSummary.reserveWallet}</div>
+                    <div className="mt-2 text-[11px] text-slate-500">
+                      Mode: <span className="font-bold text-slate-300">{exchangeSummary.assetMode}</span>
+                      {exchangeSummary.chain?.chainId ? (
+                        <>
+                          {" "}· Chain: <span className="font-bold text-slate-300">{exchangeSummary.chain.chainId}</span>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-center">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{exchangeSummary.nativeSymbol}</div>
+                      <div className="mt-1 font-mono text-sm font-extrabold text-slate-100">{exchangeSummary.balances.bnb}</div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-center">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">USDT</div>
+                      <div className="mt-1 font-mono text-sm font-extrabold text-slate-100">{exchangeSummary.balances.usdt}</div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-center">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{exchangeSummary.customSymbol}</div>
+                      <div className="mt-1 font-mono text-sm font-extrabold text-emerald-400">{exchangeSummary.assetMode === "TOKEN" ? exchangeSummary.balances.token : exchangeSummary.balances.bnb}</div>
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-12 rounded-2xl border border-slate-800 bg-slate-900 p-4 flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-xs text-slate-300">
+                      Live Rate:{" "}
+                      <span className="font-mono font-extrabold text-emerald-400">
+                        {Number(exchangeSummary.liveRate.rateUsd || 0).toFixed(6)} USDT
+                      </span>
+                      <span className="text-slate-500">
+                        {" "}· Source: {exchangeSummary.liveRate.source} · Symbol: {exchangeSummary.liveRate.symbol}
+                      </span>
+                    </div>
+                    <Link
+                      href="/developer/company/exch"
+                      className="text-xs font-bold text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1.5"
+                    >
+                      Configure Exchange <ArrowUpRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Payout flow visual */}
@@ -1073,7 +1236,12 @@ export default function CompanyAdminDashboard() {
               { name: "KYC Review", href: "/developer/company/kyc", icon: ShieldCheck, sub: "Identity queue", color: C.teal },
               { name: "Network Map", href: "/developer/company/network-settings", icon: Zap, sub: "Config", color: C.pink },
               { name: "Settings", href: "/developer/settings/general", icon: Activity, sub: "MLM config", color: "#64748b" },
-            ].map(mod => {
+            ]
+              .filter((mod) => (
+                companyRoleScope !== "admin" ||
+                !["KYC Review", "Network Map", "Settings"].includes(mod.name)
+              ))
+              .map(mod => {
               const Icon = mod.icon;
               return (
                 <Link key={mod.name} href={mod.href}
@@ -1095,6 +1263,59 @@ export default function CompanyAdminDashboard() {
         </div>
 
       </div>
+
+      {/* ── Clear Members Modal ─────────────────────────────────────── */}
+      {showClearModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0d1626] p-6 shadow-2xl shadow-black/50">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/20 text-rose-500">
+              <Trash2 className="h-6 w-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Clear All Members?</h3>
+            <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+              This will permanently delete ALL end-user accounts, MLM tree positions, wallets, and financial records for your company. 
+              <span className="text-rose-400 font-semibold block mt-2 underline italic">Admins and system settings will remain intact.</span>
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 block">
+                  Type <span className="text-white">CLEAR</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  value={clearConfirmCode}
+                  onChange={(e) => setClearConfirmCode(e.target.value.toUpperCase())}
+                  placeholder="CLEAR"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-3 text-white placeholder:text-slate-600 focus:border-rose-500/50 focus:outline-none transition-all"
+                />
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowClearModal(false); setClearConfirmCode(""); }}
+                  className="flex-1 rounded-xl bg-slate-800 px-4 py-3 text-sm font-bold text-white hover:bg-slate-700 transition-all font-sans"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearMembers}
+                  disabled={isClearing || clearConfirmCode !== "CLEAR"}
+                  className="flex-1 rounded-xl bg-rose-600 px-4 py-3 text-sm font-bold text-white hover:bg-rose-500 disabled:opacity-50 disabled:grayscale transition-all font-sans flex items-center justify-center gap-2"
+                >
+                  {isClearing ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Reset Data"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -75,6 +75,34 @@ export default function DappNotificationsPage() {
   const unreadCount = Number(data.pagination?.unread || 0);
   const totalCount = Number(data.pagination?.total || 0);
 
+  const visibleItems = useMemo(() => {
+    // Hide duplicate booster/roi credit notifications that can appear multiple times for the same tick.
+    // Ledger entries remain visible in /dapp/commissions and /dapp/wallet.
+    const seen = new Set<string>();
+    const out: NotificationItem[] = [];
+
+    for (const item of data.items) {
+      const type = String(item.type || "").toUpperCase();
+      const meta = (item.meta || {}) as Record<string, unknown>;
+      const subscriptionId = meta.subscriptionId !== undefined ? String(meta.subscriptionId) : "";
+      const creditedThrough = meta.creditedThrough !== undefined ? String(meta.creditedThrough) : "";
+
+      let key = "";
+      if ((type === "ROI_CREDIT" || type === "ROI_BOOSTER_CREDIT") && subscriptionId) {
+        key = `${type}:${subscriptionId}:${creditedThrough}`;
+      }
+
+      if (key) {
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
+
+      out.push(item);
+    }
+
+    return out;
+  }, [data.items]);
+
   const stats = useMemo(
     () => [
       { label: "Unread", value: unreadCount },
@@ -148,9 +176,9 @@ export default function DappNotificationsPage() {
             <div className="flex min-h-[240px] items-center justify-center">
               <Loader2 className="h-7 w-7 animate-spin text-[#5bbcff]" />
             </div>
-          ) : data.items.length ? (
+          ) : visibleItems.length ? (
             <div className="space-y-4">
-              {data.items.map((item) => (
+              {visibleItems.map((item) => (
                 <div
                   key={item.id}
                   className={`rounded-[24px] border p-5 transition ${

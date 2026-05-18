@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import api from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
+import { hasDeveloperScope } from "@/lib/companyRoleScope";
 import { PhotoIcon, BuildingOffice2Icon } from "@heroicons/react/24/solid";
 
 type SettingsState = {
@@ -28,6 +30,8 @@ function resolveLogo(pathValue: string | null | undefined): string | null {
 }
 
 export default function GeneralSettingsPage() {
+  const { user } = useAuth();
+  const canAccess = hasDeveloperScope(user);
   const [settings, setSettings] = useState<SettingsState>({
     site_name: "",
     brand_name: "",
@@ -43,8 +47,12 @@ export default function GeneralSettingsPage() {
   const [message, setMessage] = useState<MessageState>(null);
 
   useEffect(() => {
+    if (!canAccess) {
+      setLoading(false);
+      return;
+    }
     void fetchSettings();
-  }, []);
+  }, [canAccess]);
 
   const fetchSettings = async (): Promise<void> => {
     try {
@@ -82,6 +90,10 @@ export default function GeneralSettingsPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
+    if (!canAccess) {
+      setMessage({ type: "error", text: "Access denied." });
+      return;
+    }
     setSaving(true);
     setMessage(null);
 
@@ -113,6 +125,15 @@ export default function GeneralSettingsPage() {
   };
 
   if (loading) return <div className="p-8">Loading settings...</div>;
+  if (!canAccess) {
+    return (
+      <div className="p-8">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
+          Access denied for Company Settings.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl p-8">

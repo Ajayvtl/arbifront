@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Activity, AlertTriangle, ArrowUpRight, BadgeCheck, BarChart3, Copy, Gift, Loader2, Network, QrCode, Sparkles, Wallet, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowUpRight, BadgeCheck, BarChart3, Copy, Gift, Loader2, Network, QrCode, Sparkles, Wallet, X, Rocket, GitBranch, Trophy, UserPlus } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
@@ -11,6 +11,8 @@ import { formatPercent, formatTokenAmount } from "@/lib/numberFormat";
 import DappWalletChip from "@/components/dapp/DappWalletChip";
 import BrandLogo from "@/components/dapp/BrandLogo";
 import { getWalletTypeLabels } from "@/lib/walletTypeLabels";
+// Hidden (requested): dashboard graph
+// import CryptoChart from "@/components/dapp/CryptoChart";
 
 interface PlanItem {
   id: number;
@@ -37,6 +39,8 @@ interface OrderItem {
   status: "INITIATED" | "PENDING" | "PAID" | "FAILED";
   created_at: string;
   paid_at: string | null;
+  exch_tx_hash?: string | null;
+  exch_amount?: string | null;
 }
 
 interface PaginatedOrders {
@@ -74,6 +78,9 @@ interface ProfileSummary {
     teamMembers?: number;
     teamInvestment?: number;
     totalEarnings?: number;
+    totalBoosterCredit?: number;
+    activeWorkingIncome?: number;
+    totalWithdrawn?: number;
   };
   activeSubscriptions?: Array<{
     id: number;
@@ -84,6 +91,7 @@ interface ProfileSummary {
     status: string;
     startedAt: string;
     expiresAt: string | null;
+    roiCreditBalanceType?: string;
     roiPercent: number;
     dailyIncomePercent: number;
     baseRoiPercent?: number;
@@ -95,6 +103,8 @@ interface ProfileSummary {
     remainingSeconds?: number;
     estimatedDailyIncome: number;
     estimatedIncomeToDate: number;
+    creditedBoosterBalance?: number;
+    estimatedRemainingIncome: number;
     estimatedTotalIncome: number;
     estimatedTotalReturn?: number;
     maxReturnMultiplier?: number;
@@ -102,6 +112,13 @@ interface ProfileSummary {
     workingGainActive?: boolean;
     workingGainLabel?: string;
     workingGainExtraRoiPercent?: number;
+    exchTxHash?: string | null;
+    exchAmount?: string | null;
+  }>;
+  dashboardConfig?: Record<string, {
+    label?: string;
+    isVisible: boolean;
+    overrideValue?: string | number;
   }>;
 }
 
@@ -139,6 +156,40 @@ export default function DappDashboardPage() {
   }, [activeSubscriptions]);
   const hasActivePackage = currentActivePackageName !== "Inactive";
   const portfolioStatusLabel = hasActivePackage ? "ACTIVE" : "INACTIVE";
+
+  const getCardData = useCallback((key: string, defaultLabel: string, currentValue: string | number) => {
+    const config = profile?.dashboardConfig?.[key];
+    if (config?.isVisible === false) return null;
+    return {
+      label: config?.label || defaultLabel,
+      value: (config?.overrideValue !== undefined && config?.overrideValue !== "") ? config.overrideValue : currentValue
+    };
+  }, [profile?.dashboardConfig]);
+
+  // Derived stat: sum of all active subscription estimated total ROI
+  const totalEstimatedRoi = useMemo(
+    () => activeSubscriptions.reduce((sum, s) => sum + Number(s.estimatedTotalIncome || 0), 0),
+    [activeSubscriptions]
+  );
+
+
+  const estWorkingBalance = useMemo(() => {
+    const activeSubs = activeSubscriptions.filter(
+      (s) => String(s.status || "").toUpperCase() === "ACTIVE"
+    );
+    if (activeSubs.length === 0) return 0;
+
+    // Use actual booster credit total from income_logs (ROI_BOOSTER entries)
+    const totalBooster = Number(profile?.metrics?.totalBoosterCredit || 0);
+    if (totalBooster <= 0) return 0;
+
+    // LEVEL, REFERRAL income gets deducted from the booster allocation
+    const activeWorkingIncome = Number(profile?.metrics?.activeWorkingIncome || 0);
+
+    return Math.max(0, totalBooster - activeWorkingIncome);
+  }, [activeSubscriptions, profile?.metrics]);
+
+  // Note: additional derived stats (DEL_ROI, DEL_WORKING) are intentionally omitted from the UI.
   const referralLink = useMemo(() => {
     if (!profile?.referralCode || typeof window === "undefined") return "";
     return `${window.location.origin}/dapp/login?ref=${encodeURIComponent(profile.referralCode)}`;
@@ -236,6 +287,11 @@ export default function DappDashboardPage() {
           </div>
         </div>
 
+        {/* Hidden (requested): graph */}
+        {/* <div className="w-full">
+          <CryptoChart symbol="ARBUSDT" interval="15m" height={350} />
+        </div> */}
+
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
           <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
             <p className="text-[11px] uppercase tracking-wider text-[#5bbcff]">Active Package</p>
@@ -258,96 +314,182 @@ export default function DappDashboardPage() {
             <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">Total Invested</p>
             <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">{formatTokenAmount(totalPaidAmount)}</p>
           </div>
-          <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
+          {/* <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
             <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">My Level</p>
             <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">{profile?.metrics?.networkLevel ?? 0}</p>
-          </div>
+          </div> */}
         </div>
 
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
-            <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">My Sponsor</p>
+            <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">My Active Referrals</p>
             <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">{profile?.metrics?.directReferrals ?? 0}</p>
           </div>
           <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
             <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">My Team</p>
             <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">{profile?.metrics?.teamMembers ?? 0}</p>
           </div>
+
+          {/* Total Earning Card — calculated directly from Est. Working + Total Withdrawn */}
           <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
-            <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">Total Earning</p>
-            <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">{formatTokenAmount(profile?.metrics?.totalEarnings ?? 0)}</p>
+            <p className="text-[11px] uppercase tracking-wider text-[#a066ff]">Total Earning</p>
+            <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">
+              {formatTokenAmount(estWorkingBalance + Number(profile?.metrics?.totalWithdrawn ?? 0))}
+            </p>
+            <p className="mt-1 text-[10px] text-[#848e9c]">EST. Total Earning</p>
           </div>
+
           <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
             <p className="text-[11px] uppercase tracking-wider text-[#7f95ad]">Team Investment</p>
             <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">{formatTokenAmount(profile?.metrics?.teamInvestment ?? 0)}</p>
           </div>
+
+          {(() => {
+            const data = getCardData('EST_TOTAL_ROI', 'Est. Total ROI', totalEstimatedRoi);
+            if (!data) return null;
+            return (
+              <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
+                <p className="text-[11px] uppercase tracking-wider text-[#f0b90b]">{data.label}</p>
+                <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">
+                  {typeof data.value === 'string' ? data.value : formatTokenAmount(Number(data.value))}
+                </p>
+              </div>
+            );
+          })()}
+
+          {/* Est. Working — calculated directly, NOT via Flow/dashboardConfig */}
+          {hasActivePackage && (
+            <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
+              <p className="text-[11px] uppercase tracking-wider text-[#0ecb81]">Est. Working</p>
+              <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">
+                {formatTokenAmount(estWorkingBalance)}
+              </p>
+              <p className="mt-1 text-[10px] text-[#848e9c]">Booster balance remaining</p>
+            </div>
+          )}
+
+          {/* {(() => {
+            const data = getCardData('DEL_ROI', 'Del. ROI', delROI);
+            if (!data) return null;
+            return (
+              <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
+                <p className="text-[11px] uppercase tracking-wider text-[#a066ff]">{data.label}</p>
+                <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">
+                   {typeof data.value === 'string' ? data.value : formatTokenAmount(Number(data.value))}
+                </p>
+                <p className="mt-1 text-[10px] text-[#848e9c]">Earned to Date (ROI)</p>
+              </div>
+            );
+          })()}
+
+          {(() => {
+            const data = getCardData('DEL_WORKING', 'Del. Working', delWorking);
+            if (!data) return null;
+            return (
+              <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
+                <p className="text-[11px] uppercase tracking-wider text-[#a066ff]">{data.label}</p>
+                <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">
+                   {typeof data.value === 'string' ? data.value : formatTokenAmount(Number(data.value))}
+                </p>
+                <p className="mt-1 text-[10px] text-[#848e9c]">Est. Working – Level Balance</p>
+              </div>
+            );
+          })()} */}
+
+          {(() => {
+            const data = getCardData('WITHDRAWABLE', 'Available to Withdraw', profile?.wallet?.withdrawableBalance ?? 0);
+            if (!data) return null;
+
+            const numericValue = Number(data.value);
+            const finalValue = (!isNaN(numericValue) && numericValue < 0) ? 0 : data.value;
+
+            return (
+              <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] uppercase tracking-wider text-[#5bbcff]">{data.label}</p>
+                  <Link href="/dapp/withdraw" className="text-[10px] font-bold text-[#f0b90b] hover:underline">Withdraw</Link>
+                </div>
+                <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">
+                  {typeof finalValue === 'string' ? finalValue : formatTokenAmount(Number(finalValue))}
+                </p>
+                <p className="mt-1 text-[10px] text-[#848e9c]">Live Wallet Balance</p>
+              </div>
+            );
+          })()}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-4">
+
+        <div className="rounded-2xl border border-[#1e2329] bg-[#161a20] p-5 shadow md:p-6">
+          <h2 className="text-lg font-semibold text-[#f5f5f5]">Quick Actions</h2>
+          <p className="mt-1 text-sm text-[#848e9c]">Direct access to your earning streams and network.</p>
+          <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <Link href="/dapp/roi" className="flex flex-col items-center justify-center rounded-2xl border border-[#2b3139] bg-[#111418] p-4 text-center transition hover:border-[#f0b90b] hover:bg-[#201a08] group">
+              <div className="rounded-full bg-[#f0b90b]/10 p-3 text-[#f0b90b] transition group-hover:scale-110">
+                <BarChart3 className="h-5 w-5" />
+              </div>
+              <p className="mt-3 text-xs font-bold uppercase tracking-wider text-[#f5f5f5]">ROI Tracker</p>
+            </Link>
+
+            <Link href="/dapp/network" className="flex flex-col items-center justify-center rounded-2xl border border-[#2b3139] bg-[#111418] p-4 text-center transition hover:border-[#0ecb81] hover:bg-[#0e2a20] group">
+              <div className="rounded-full bg-[#0ecb81]/10 p-3 text-[#0ecb81] transition group-hover:scale-110">
+                <UserPlus className="h-5 w-5" />
+              </div>
+              <p className="mt-3 text-xs font-bold uppercase tracking-wider text-[#f5f5f5]">Referrals</p>
+            </Link>
+
+            <Link href="/dapp/level-income" className="flex flex-col items-center justify-center rounded-2xl border border-[#2b3139] bg-[#111418] p-4 text-center transition hover:border-[#a066ff] hover:bg-[#1f1630] group">
+              <div className="rounded-full bg-[#a066ff]/10 p-3 text-[#a066ff] transition group-hover:scale-110">
+                <GitBranch className="h-5 w-5" />
+              </div>
+              <p className="mt-3 text-xs font-bold uppercase tracking-wider text-[#f5f5f5]">Level Income</p>
+            </Link>
+
+            {/* HIDDEN: Commission quick links (Boosters + Rewards) — uncomment to restore
+            <Link href="/dapp/commissions?type=ROI_BOOSTER" className="flex flex-col items-center justify-center rounded-2xl border border-[#2b3139] bg-[#111418] p-4 text-center transition hover:border-[#5bbcff] hover:bg-[#0b1930] group">
+              <div className="rounded-full bg-[#5bbcff]/10 p-3 text-[#5bbcff] transition group-hover:scale-110">
+                <Rocket className="h-5 w-5" />
+              </div>
+              <p className="mt-3 text-xs font-bold uppercase tracking-wider text-[#f5f5f5]">Boosters</p>
+            </Link>
+
+            <Link href="/dapp/commissions?type=REWARD" className="flex flex-col items-center justify-center rounded-2xl border border-[#2b3139] bg-[#111418] p-4 text-center transition hover:border-[#facc15] hover:bg-[#2e260a] group">
+              <div className="rounded-full bg-[#facc15]/10 p-3 text-[#facc15] transition group-hover:scale-110">
+                <Trophy className="h-5 w-5" />
+              </div>
+              <p className="mt-3 text-xs font-bold uppercase tracking-wider text-[#f5f5f5]">Rewards</p>
+            </Link>
+*/}
+          </div>
+        </div>
+
+        {/* HIDDEN: Portfolio section — uncomment to restore
+        <div className="grid grid-cols-1 gap-4">
           <div className="rounded-2xl border border-[#1e2329] bg-[#161a20] p-5 shadow md:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-[#f5f5f5]">Portfolio</h2>
-                <p className="text-sm text-[#848e9c]">Live user balances and referral identity. Auto refreshes every 15 seconds.</p>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void loadData(false)}
-                  className="rounded-full border border-[#123a62] bg-[#0b1930] px-3 py-1 text-xs font-semibold text-[#5bbcff]"
-                >
-                  Refresh
-                </button>
+                <button type="button" onClick={() => void loadData(false)} className="rounded-full border border-[#123a62] bg-[#0b1930] px-3 py-1 text-xs font-semibold text-[#5bbcff]">Refresh</button>
                 <span className="inline-flex items-center gap-1 rounded-full border border-[#3a2f09] bg-[#201a08] px-3 py-1 text-xs font-semibold text-[#f0b90b]">
-                  {hasActivePackage ? (
-                    <BadgeCheck className="h-3.5 w-3.5 text-[#0ecb81]" />
-                  ) : (
-                    <AlertTriangle className="h-3.5 w-3.5 text-[#f6465d]" />
-                  )}
+                  {hasActivePackage ? <BadgeCheck className="h-3.5 w-3.5 text-[#0ecb81]" /> : <AlertTriangle className="h-3.5 w-3.5 text-[#f6465d]" />}
                   <span className={hasActivePackage ? "text-[#0ecb81]" : "text-[#f6465d]"}>{portfolioStatusLabel}</span>
                 </span>
               </div>
             </div>
             <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Total Earning</p>
-                <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.metrics?.totalEarnings || 0)}</p>
-              </div>
-              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.earning_balance}</p>
-                <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.earningBalance || 0)}</p>
-              </div>
-              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.roi_balance}</p>
-                <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.roiBalance || 0)}</p>
-                <p className="mt-1 text-[11px] text-[#848e9c]">
-                  {profile?.mlmSettings?.roi_credit_enabled
-                    ? `Time-based credit at ${profile?.mlmSettings?.roi_credit_time_utc || "00:00"} UTC`
-                    : `${walletTypeLabels.roi_balance} credit is currently disabled`}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.direct_balance}</p>
-                <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.directBalance || 0)}</p>
-              </div>
-              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.reward_balance}</p>
-                <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.rewardBalance || 0)}</p>
-              </div>
-              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.level_balance}</p>
-                <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.levelBalance || 0)}</p>
-              </div>
-              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.withdrawable_balance}</p>
-                <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.withdrawableBalance || 0)}</p>
-              </div>
-              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
-                <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.locked_balance}</p>
-                <p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.lockedBalance || 0)}</p>
-              </div>
+              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4"><p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Total Earning</p><p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.metrics?.totalEarnings || 0)}</p></div>
+              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4"><p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.earning_balance}</p><p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.earningBalance || 0)}</p></div>
+              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4"><p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.roi_balance}</p><p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.roiBalance || 0)}</p></div>
+              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4"><p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.direct_balance}</p><p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.directBalance || 0)}</p></div>
+              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4"><p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.reward_balance}</p><p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.rewardBalance || 0)}</p></div>
+              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4"><p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.level_balance}</p><p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.levelBalance || 0)}</p></div>
+              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4"><p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.withdrawable_balance}</p><p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.withdrawableBalance || 0)}</p></div>
+              <div className="rounded-xl border border-[#2b3139] bg-[#111418] p-4"><p className="text-[11px] uppercase tracking-wide text-[#848e9c]">{walletTypeLabels.locked_balance}</p><p className="mt-2 text-lg font-semibold text-[#f5f5f5]">{formatTokenAmount(profile?.wallet?.lockedBalance || 0)}</p></div>
             </div>
           </div>
+        END HIDDEN PORTFOLIO */}
+        <div className="grid grid-cols-1 gap-4">
 
           <div className="rounded-2xl border border-[#1e2329] bg-[#161a20] p-5 shadow md:p-6">
             <h2 className="text-lg font-semibold text-[#f5f5f5]">Referral Identity</h2>
@@ -423,7 +565,7 @@ export default function DappDashboardPage() {
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       {sub.workingGainActive ? (
                         <span className="rounded-full border border-[#123a62] bg-[#0b1930] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5bbcff]">
-                          {sub.workingGainLabel || "Working Gain"} +{formatPercent(sub.workingGainExtraRoiPercent, 2)}%
+                          {sub.workingGainLabel || "Booster Gain"} {sub.maxReturnMultiplier ? `${sub.maxReturnMultiplier}X` : ""}
                         </span>
                       ) : null}
                       <span className="rounded-full border border-[#3a2f09] bg-[#201a08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#f0b90b]">
@@ -439,7 +581,7 @@ export default function DappDashboardPage() {
                     {sub.workingGainActive && (
                       <div>
                         <p className="text-[11px] uppercase tracking-wide text-[#5bbcff] font-semibold tracking-tighter">Booster Gain</p>
-                        <p className="text-[#5bbcff] font-bold">+{formatPercent(sub.workingGainExtraRoiPercent, 4)}%</p>
+                        <p className="text-[#5bbcff] font-bold">{sub.maxReturnMultiplier ? `${sub.maxReturnMultiplier}X` : `${sub.workingGainLabel || "Active"}`}</p>
                       </div>
                     )}
                     <div>
@@ -451,7 +593,12 @@ export default function DappDashboardPage() {
                       <p className="text-[#f5f5f5]">{formatTokenAmount(sub.estimatedDailyIncome)} {sub.tokenSymbol}</p>
                     </div>
                     <div>
-                      <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Earned to Date</p>
+                      <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">
+                        Earned to Date{" "}
+                        <span className="text-[#5bbcff]">
+                          ({(walletTypeLabels as Record<string, string>)[sub.roiCreditBalanceType || "roi_balance"] || (sub.roiCreditBalanceType || "roi_balance")})
+                        </span>
+                      </p>
                       <p className="text-[#f5f5f5]">{formatTokenAmount(sub.estimatedIncomeToDate)} {sub.tokenSymbol}</p>
                     </div>
                     <div>
@@ -463,15 +610,48 @@ export default function DappDashboardPage() {
                           : ""}
                       </p>
                     </div>
-                    {/* <div>
-                      <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">ROI Mode</p>
-                      <p className="text-[#f5f5f5]">
-                        {sub.workingGainActive && sub.baseRoiPercent !== undefined
-                          ? `${formatPercent(sub.baseRoiPercent, 2)}% -> ${formatPercent(sub.roiPercent, 2)}%`
-                          : `${formatPercent(sub.roiPercent, 2)}% base`}
-                      </p>
-                    </div> */}
+                    {sub.workingGainActive && (
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide text-[#5bbcff] font-semibold tracking-tighter">Credited Booster ROI</p>
+                        <p className="text-[#5bbcff] font-semibold">{formatTokenAmount(sub.creditedBoosterBalance || 0)} {sub.tokenSymbol}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Projected Total ROI</p>
+                      <p className="text-[#f5f5f5]">{formatTokenAmount(sub.estimatedTotalIncome)} {sub.tokenSymbol}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Remaining ROI</p>
+                      <p className="font-semibold text-[#0ecb81]">{formatTokenAmount(sub.estimatedRemainingIncome)} {sub.tokenSymbol}</p>
+                    </div>
                   </div>
+
+                  {sub.exchTxHash && (
+                    <div className="mt-4 pt-3 border-t border-[#1b2230] space-y-2">
+                      <div className="flex items-center gap-1.5 text-xs text-[#5bbcff] font-semibold">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#5bbcff] animate-pulse"></span>
+                        Exchange Router Sweep Successful
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#09111c]/60 border border-[#1b2230] text-xs">
+                        <div>
+                          <span className="block text-[9px] text-[#7f95ad] uppercase font-bold">Swept Amount</span>
+                          <span className="font-extrabold text-white">{sub.exchAmount || "-"}</span>
+                        </div>
+                        <div>
+                          <span className="block text-[9px] text-[#7f95ad] uppercase font-bold">Explorer Status</span>
+                          <a
+                            href={`https://bscscan.com/tx/${sub.exchTxHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-bold text-[#f0b90b] hover:underline flex items-center gap-1"
+                          >
+                            BscScan
+                            <ArrowUpRight className="h-3 w-3" />
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -543,9 +723,9 @@ export default function DappDashboardPage() {
                     Total return cap on min amount:{" "}
                     {formatTokenAmount(Number(plan.min_amount || 0) * Number(plan.max_return_multiplier || 2))}
                   </p>
-                  {/* <button type="button" onClick={() => router.push(`/dapp/pay/${plan.id}`)} className="mt-4 w-full rounded-lg bg-[#f0b90b] px-3 py-2 font-medium text-[#181a20] hover:bg-[#f8d45c]">
+                  <button type="button" onClick={() => router.push(`/dapp/pay/${plan.id}`)} className="mt-4 w-full rounded-lg bg-[#f0b90b] px-3 py-2 font-medium text-[#181a20] hover:bg-[#f8d45c]">
                     Activate Plan
-                  </button> */}
+                  </button>
                 </div>
               ))}
             </div>

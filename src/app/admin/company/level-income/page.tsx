@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { GitBranch, Loader2, Save } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
+import { getCompanyRoleScope } from "@/lib/companyRoleScope";
 import { getWalletTypeLabels, WALLET_TYPE_KEYS, WalletTypeKey } from "@/lib/walletTypeLabels";
 
 type LevelIncomeRow = {
@@ -25,6 +27,9 @@ const defaultRows: LevelIncomeRow[] = Array.from({ length: 20 }, (_, index) => (
 }));
 
 export default function CompanyLevelIncomePage() {
+  const { user } = useAuth();
+  const companyRoleScope = useMemo(() => getCompanyRoleScope(user), [user]);
+  const isReadOnlyAdmin = companyRoleScope === "admin";
   const [rows, setRows] = useState<LevelIncomeRow[]>(defaultRows);
   const [levelIncomeBalanceType, setLevelIncomeBalanceType] = useState<WalletTypeKey>("level_balance");
   const [walletTypeLabels, setWalletTypeLabels] = useState(getWalletTypeLabels(null));
@@ -69,6 +74,10 @@ export default function CompanyLevelIncomePage() {
   const totalPercent = useMemo(() => rows.reduce((sum, row) => sum + (row.enabled ? Number(row.percent || 0) : 0), 0), [rows]);
 
   const save = async () => {
+    if (isReadOnlyAdmin) {
+      toast.error("Admin role has read-only access to level income matrix");
+      return;
+    }
     setSaving(true);
     try {
       const settingsRes = await api.get("/settings/mlm");
@@ -122,7 +131,7 @@ export default function CompanyLevelIncomePage() {
                 <thead className="bg-slate-50 text-slate-500 dark:bg-slate-900">
                   <tr>
                     <th className="px-4 py-3 text-left">Level</th>
-                    <th className="px-4 py-3 text-left">Enabled</th>
+                    <th className="px-4 py-3 text-left">{isReadOnlyAdmin ? "Status" : "Enabled"}</th>
                     <th className="px-4 py-3 text-left">Percent</th>
                     <th className="px-4 py-3 text-left">Rule</th>
                   </tr>
@@ -132,23 +141,33 @@ export default function CompanyLevelIncomePage() {
                     <tr key={row.level} className="border-t border-slate-100 dark:border-slate-800">
                       <td className="px-4 py-3 font-medium">Level {row.level}</td>
                       <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => setRows((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, enabled: !item.enabled } : item))}
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${row.enabled ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300" : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}
-                        >
-                          {row.enabled ? "Enabled" : "Disabled"}
-                        </button>
+                        {isReadOnlyAdmin ? (
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${row.enabled ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300" : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}>
+                            {row.enabled ? "Enabled" : "Disabled"}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setRows((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, enabled: !item.enabled } : item))}
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${row.enabled ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300" : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}
+                          >
+                            {row.enabled ? "Enabled" : "Disabled"}
+                          </button>
+                        )}
                       </td>
                       <td className="px-4 py-3">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={row.percent}
-                          onChange={(e) => setRows((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, percent: Number(e.target.value || 0) } : item))}
-                          className="w-28 rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
-                        />
+                        {isReadOnlyAdmin ? (
+                          <span>{Number(row.percent || 0).toFixed(2)}%</span>
+                        ) : (
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={row.percent}
+                            onChange={(e) => setRows((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, percent: Number(e.target.value || 0) } : item))}
+                            className="w-28 rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
+                          />
+                        )}
                       </td>
                       <td className="px-4 py-3 text-slate-500">
                         {row.enabled && row.percent > 0
@@ -168,18 +187,20 @@ export default function CompanyLevelIncomePage() {
               </div>
               <div className="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
                 <p>When a member receives Daily Income, the system checks the active upline chain up to level 20.</p>
-                <label className="space-y-1 block">
-                  <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Credit Level Income To Wallet Type</span>
-                  <select
-                    value={levelIncomeBalanceType}
-                    onChange={(e) => setLevelIncomeBalanceType(e.target.value as WalletTypeKey)}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-                  >
-                    {WALLET_TYPE_KEYS.map((key) => (
-                      <option key={key} value={key}>{walletTypeLabels[key]}</option>
-                    ))}
-                  </select>
-                </label>
+                {!isReadOnlyAdmin && (
+                  <label className="space-y-1 block">
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Credit Level Income To Wallet Type</span>
+                    <select
+                      value={levelIncomeBalanceType}
+                      onChange={(e) => setLevelIncomeBalanceType(e.target.value as WalletTypeKey)}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                    >
+                      {WALLET_TYPE_KEYS.map((key) => (
+                        <option key={key} value={key}>{walletTypeLabels[key]}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <p>
                   If a level is enabled, that upline gets the configured percentage of the member&apos;s Daily Income credited into
                   {" "}
@@ -190,15 +211,17 @@ export default function CompanyLevelIncomePage() {
               <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
                 Keep the total percentage sensible. This matrix is now live against Daily Income credits, not just a placeholder form.
               </div>
-              <button
-                type="button"
-                onClick={() => void save()}
-                disabled={saving}
-                className="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
-              >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                {saving ? "Saving..." : "Save Level Income"}
-              </button>
+              {!isReadOnlyAdmin && (
+                <button
+                  type="button"
+                  onClick={() => void save()}
+                  disabled={saving}
+                  className="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {saving ? "Saving..." : "Save Level Income"}
+                </button>
+              )}
             </div>
           </div>
         </>

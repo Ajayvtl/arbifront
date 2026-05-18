@@ -22,6 +22,7 @@ type MlmSettings = {
   direct_income_percent: number;
   direct_income_min_package_amount: number;
   direct_income_balance_type: string;
+  direct_income_apply_for_inactive?: number;
   direct_income_rules?: DirectIncomeRule[];
   wallet_type_labels?: Partial<Record<string, unknown>> | null;
 };
@@ -31,6 +32,7 @@ const defaultForm: MlmSettings = {
   direct_income_percent: 0,
   direct_income_min_package_amount: 0,
   direct_income_balance_type: "direct_balance",
+  direct_income_apply_for_inactive: 0,
   direct_income_rules: [],
 };
 
@@ -99,6 +101,7 @@ export default function DirectIncomeRulePage() {
       direct_income_percent: Number((payloadOverride?.direct_income_percent ?? form.direct_income_percent) || 0),
       direct_income_min_package_amount: Number((payloadOverride?.direct_income_min_package_amount ?? form.direct_income_min_package_amount) || 0),
       direct_income_balance_type: String((payloadOverride?.direct_income_balance_type ?? form.direct_income_balance_type) || "direct_balance"),
+      direct_income_apply_for_inactive: payloadOverride?.direct_income_apply_for_inactive ?? (form.direct_income_apply_for_inactive ? 1 : 0),
       direct_income_rules: payloadOverride?.direct_income_rules ?? form.direct_income_rules ?? [],
     };
     
@@ -302,6 +305,21 @@ export default function DirectIncomeRulePage() {
             </button>
           </div>
         </div>
+
+        <label className="mt-4 flex items-start gap-3 text-sm text-slate-700 dark:text-slate-200">
+          <input
+            type="checkbox"
+            checked={Boolean(form.direct_income_apply_for_inactive)}
+            onChange={(e) => setForm((prev) => ({ ...prev, direct_income_apply_for_inactive: e.target.checked ? 1 : 0 }))}
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700"
+          />
+          <span>
+            <span className="font-semibold">Apply for inactive</span>
+            <span className="block text-xs text-slate-500 dark:text-slate-400">
+              When enabled, Sponsor/Direct income is credited even if the sponsor has no active subscription.
+            </span>
+          </span>
+        </label>
       </form>
 
       <form onSubmit={submitRule} className="rounded-2xl border border-slate-200 bg-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/30">

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
-import { AlertTriangle, BadgeCheck, Bell, CheckCheck, ChevronRight, CircleUserRound, GitBranch, Home, Loader2, LogOut, Menu, Network, Sparkles, Wallet, X } from "lucide-react";
+import { AlertTriangle, Award, BadgeCheck, Bell, CheckCheck, ChevronRight, CircleUserRound, GitBranch, Home, Loader2, LogOut, Menu, Network, Sparkles, Wallet, X } from "lucide-react";
 import api from "@/lib/api";
 import DappWalletChip from "@/components/dapp/DappWalletChip";
 import BrandLogo from "@/components/dapp/BrandLogo";
@@ -58,19 +58,47 @@ export default function DappLayout({ children }: { children: React.ReactNode }) 
   const planNavIcon = hasPaidPlan ? BadgeCheck : AlertTriangle;
   const navItems = [
     { key: "home", href: "/dapp/dashboard", matchHref: "/dapp/dashboard", label: "Home", icon: Home },
+    { key: "withdraw", href: "/dapp/withdraw", matchHref: "/dapp/withdraw", label: "Withdraw", icon: Wallet },
     { key: "plan", href: hasPaidPlan ? "/dapp/roi" : "/dapp/dashboard#packages", matchHref: hasPaidPlan ? "/dapp/roi" : "/dapp/dashboard", label: hasPaidPlan ? "My Plan" : "Inactive", icon: planNavIcon, badge: pendingOrdersCount },
     { key: "network", href: "/dapp/network", matchHref: "/dapp/network", label: "Network", icon: Network },
     { key: "level-income", href: "/dapp/level-income", matchHref: "/dapp/level-income", label: "Level Income", icon: GitBranch },
+    { key: "matching", href: "/dapp/matching", matchHref: "/dapp/matching", label: "Matching", icon: Award },
     { key: "payments", href: "/dapp/transactions", matchHref: "/dapp/transactions", label: "Payments", icon: Wallet, badge: pendingOrdersCount },
     { key: "notifications", href: "/dapp/notifications", matchHref: "/dapp/notifications", label: "Alerts", icon: Bell, badge: notificationUnreadCount },
+    { key: "support", href: "/dapp/support", matchHref: "/dapp/support", label: "Support", icon: AlertTriangle },
     { key: "profile", href: "/dapp/profile", matchHref: "/dapp/profile", label: "Profile", icon: CircleUserRound },
   ];
-  const latestNotifications = useMemo(() => notificationItems.slice(0, 6), [notificationItems]);
+  // Filter for bottom nav to avoid crowding (Max 5 items)
+  const bottomNavItems = navItems.slice(0, 5);
+  const latestNotifications = useMemo(() => {
+    const seen = new Set<string>();
+    const out: typeof notificationItems = [];
+
+    for (const item of notificationItems) {
+      const type = String(item.type || "").toUpperCase();
+      let key = "";
+      if (type === "ROI_CREDIT" || type === "ROI_BOOSTER_CREDIT") {
+        key = `${type}:${String(item.message || "")}`;
+      }
+
+      if (key) {
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
+
+      out.push(item);
+      if (out.length >= 6) break;
+    }
+
+    return out;
+  }, [notificationItems]);
   const pageTitle = (() => {
     if (pathname === "/dapp/dashboard") return "Account Overview";
     if (pathname === "/dapp/profile") return "Profile";
     if (pathname === "/dapp/network") return "Network";
     if (pathname === "/dapp/notifications") return "Notifications";
+    if (pathname === "/dapp/matching") return "Matching Performance";
+    if (pathname === "/dapp/support") return "Help & Support";
     if (pathname === "/dapp/transactions") return "Payment History";
     if (pathname === "/dapp/withdraw") return "Withdraw Funds";
     if (pathname.startsWith("/dapp/pay/")) return "Plan Payment";
@@ -436,6 +464,14 @@ export default function DappLayout({ children }: { children: React.ReactNode }) 
             </div>
             <div className="border-b border-[#132235] px-5 py-4">
               <DappWalletChip address={walletAddress} className="w-full justify-start" />
+              <button
+                type="button"
+                onClick={logout}
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#24364a] bg-[#0d1726] px-4 py-3 text-sm font-medium text-[#f5f5f5] transition hover:border-[#35506b] hover:bg-[#122033]"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </button>
             </div>
             <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-5">
               {navItems.map((item) => {
@@ -468,16 +504,7 @@ export default function DappLayout({ children }: { children: React.ReactNode }) 
                 );
               })}
             </nav>
-            <div className="border-t border-[#132235] px-4 py-4">
-              <button
-                type="button"
-                onClick={logout}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#24364a] bg-[#0d1726] px-4 py-3 text-sm font-medium text-[#f5f5f5] transition hover:border-[#35506b] hover:bg-[#122033]"
-              >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </button>
-            </div>
+
           </aside>
         </div>
       ) : null}
@@ -485,8 +512,8 @@ export default function DappLayout({ children }: { children: React.ReactNode }) 
         <nav className="fixed inset-x-0 bottom-0 z-50 xl:hidden">
           <div className="relative w-full border-t border-[#123a62] bg-[#09111c]/98 px-1 pb-[env(safe-area-inset-bottom)] pt-1 shadow-[0_-12px_28px_rgba(0,0,0,0.4)] backdrop-blur">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#1ea0ff] to-transparent" />
-            <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}>
-            {navItems.map((item) => {
+            <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(${bottomNavItems.length}, minmax(0, 1fr))` }}>
+            {bottomNavItems.map((item) => {
               const normalizedHref = item.matchHref.split("#")[0];
               const active = pathname === normalizedHref || (normalizedHref !== "/dapp/dashboard" && pathname.startsWith(normalizedHref));
               return (

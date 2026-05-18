@@ -8,7 +8,8 @@ import { useTheme } from "@/context/ThemeContext";
 import { useSettings } from "@/context/SettingsContext";
 import { IconMap } from "@/lib/iconMapping";
 import { canViewModule, hasAnyPermission } from "@/lib/permissions";
-import { useMemo, useState } from "react";
+import { getCompanyRoleScope } from "@/lib/companyRoleScope";
+import { useEffect, useMemo, useState } from "react";
 import { AppMenuItem, SUPER_ADMIN_MENU, TENANT_MENU, MLM_END_USER_MENU, COMPANY_ADMIN_MENU } from "@/lib/nav";
 
 export default function Sidebar() {
@@ -16,7 +17,13 @@ export default function Sidebar() {
     const { logout, user, availableHotels } = useAuth();
     const { sidebarCollapsed } = useTheme();
     const { settings, t } = useSettings();
+    const enableRoleScopeSplit = process.env.NEXT_PUBLIC_ENABLE_ROLE_SCOPE_SPLIT === "true";
     const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const toggleMenu = (name: string, currentState: boolean) => {
         setExpandedMenus(prev => ({ ...prev, [name]: !currentState }));
@@ -57,10 +64,36 @@ export default function Sidebar() {
         }
         return (user?.role_id === 1 || (!userWithHotel?.hotel_id && availableHotels.length === 0)) ? "platform" : "tenant";
     }, [user, simRole, simulationProfiles, availableHotels]);
+    const effectiveCompanyRoleScope = useMemo(() => getCompanyRoleScope(effectiveUser), [effectiveUser]);
 
     const menuItems = useMemo(() => {
+        const filterByCompanyRoleScope = (
+            menu: AppMenuItem[],
+            roleScope: "admin" | "developer" | "all"
+        ): AppMenuItem[] => {
+            const isScopeMatch = (item: AppMenuItem) => {
+                if (roleScope === "all") return true;
+                const itemScope = item.roleScope || "developer";
+                if (itemScope === "all") return true;
+                return itemScope === roleScope;
+            };
+
+            return menu.reduce((acc: AppMenuItem[], item: AppMenuItem) => {
+                if (!isScopeMatch(item)) return acc;
+                const nextItem: AppMenuItem = { ...item };
+                if (item.children) {
+                    nextItem.children = filterByCompanyRoleScope(item.children, roleScope);
+                    if (!nextItem.children.length && !nextItem.href) return acc;
+                }
+                acc.push(nextItem);
+                return acc;
+            }, []);
+        };
+
+        const companyRoleScope = effectiveCompanyRoleScope;
         const isVisible = (item: AppMenuItem): boolean => {
             if (effectiveUser?.role_id === 1) return true; // Super Admin sees all
+            if (companyRoleScope === "admin" && item.name === "Company Settings") return false;
 
             if (Array.isArray(item.permissions) && item.permissions.length > 0) {
                 if (!hasAnyPermission(effectiveUser, item.permissions)) return false;
@@ -98,26 +131,27 @@ export default function Sidebar() {
             }, []);
         };
 
-        const roleLabel = String(effectiveUser?.role || "").toUpperCase();
-        const userEmail = String(effectiveUser?.email || "").toLowerCase();
-        const userPermissions = Array.isArray(effectiveUser?.permissions) ? effectiveUser.permissions : [];
-        const hasDeveloperPermission =
-            userPermissions.includes("developer.view") ||
-            userPermissions.includes("menu.developer");
+        const isSuperAdmin = companyRoleScope === "all";
         const isDeveloperWorkspacePath = pathname.startsWith("/developer");
-        const isDeveloperLikeRole =
-            roleLabel === "COMPANY_ADMIN" ||
-            roleLabel === "DEVELOPER" ||
-            roleLabel === "DEVELOPER_ADMIN" ||
-            roleLabel === "ADMIN" ||
-            userEmail === "dev@dev.com" ||
-            hasDeveloperPermission;
+        const isDeveloperLikeRole = companyRoleScope === "developer";
+        const isAdminLikeRole = companyRoleScope === "admin";
+        const companyMenuScope: "admin" | "developer" | "all" = isSuperAdmin
+            ? "all"
+            : (isDeveloperLikeRole || (isDeveloperWorkspacePath && !isAdminLikeRole))
+                ? "developer"
+                : "admin";
 
         if (effectiveUser?.role === "USER") return filterMenu(MLM_END_USER_MENU);
-        if (isDeveloperWorkspacePath || isDeveloperLikeRole) return filterMenu(COMPANY_ADMIN_MENU);
+        if (isDeveloperWorkspacePath || isDeveloperLikeRole || isAdminLikeRole || isSuperAdmin) {
+            if (!enableRoleScopeSplit) {
+                return filterMenu(COMPANY_ADMIN_MENU);
+            }
+            const scopedCompanyMenu = filterByCompanyRoleScope(COMPANY_ADMIN_MENU, companyMenuScope);
+            return filterMenu(scopedCompanyMenu);
+        }
         if (effectiveWorkspace === "platform") return filterMenu(SUPER_ADMIN_MENU);
         return filterMenu(TENANT_MENU);
-    }, [effectiveUser, effectiveWorkspace, pathname]);
+    }, [effectiveUser, effectiveWorkspace, pathname, enableRoleScopeSplit, effectiveCompanyRoleScope]);
 
     const settingsItems = [
         { name: "General", href: "/admin/settings/general", icon: "Settings", perm: "settings.view" },
@@ -125,7 +159,7 @@ export default function Sidebar() {
         { name: "Notifications", href: "/admin/settings/notifications", icon: "Activity", perm: "notifications.view" },
     ].filter(item => {
         if (effectiveUser?.role === "USER") return false;
-        if (effectiveUser?.role === "COMPANY_ADMIN") return false;
+        if (effectiveCompanyRoleScope === "admin") return false;
         // Keep super admin sidebar focused: dedicated platform menu already has required entries.
         if (effectiveUser?.role_id === 1) return false;
         return item.perm ? hasAnyPermission(effectiveUser, [item.perm, `menu.${item.perm.split('.')[0]}`]) : true;
@@ -222,7 +256,17 @@ export default function Sidebar() {
         );
     };
 
-    return (
+    return !mounted ? (
+        <aside className={`${sidebarCollapsed ? 'w-20' : 'w-72'} bg-slate-900 dark:bg-slate-950 text-white h-screen fixed left-0 top-0 flex flex-col shadow-2xl z-50 font-sans border-r border-slate-800 dark:border-slate-900`}>
+            <div className={`p-6 flex items-center gap-3 border-b border-slate-800/50 bg-slate-900/50 dark:bg-slate-950/50 backdrop-blur-xl ${sidebarCollapsed ? 'justify-center' : ''}`}>
+               <div className="w-10 h-10 bg-white/10 rounded-xl animate-pulse" />
+               {!sidebarCollapsed && <div className="h-4 w-32 bg-white/10 rounded-md animate-pulse" />}
+            </div>
+            <div className="p-4 space-y-4">
+               {[1,2,3,4,5].map(i => <div key={i} className="h-10 w-full bg-white/5 rounded-lg animate-pulse" />)}
+            </div>
+        </aside>
+    ) : (
         <aside className={`${sidebarCollapsed ? 'w-20' : 'w-72'} bg-slate-900 dark:bg-slate-950 text-white h-screen fixed left-0 top-0 flex flex-col shadow-2xl z-50 font-sans transition-all duration-300 border-r border-slate-800 dark:border-slate-900`}>
             {/* Logo Section */}
             <div className={`p-6 flex items-center gap-3 border-b border-slate-800/50 bg-slate-900/50 dark:bg-slate-950/50 backdrop-blur-xl ${sidebarCollapsed ? 'justify-center' : ''}`}>
@@ -245,7 +289,11 @@ export default function Sidebar() {
             <nav className="flex-1 p-3 space-y-2 overflow-y-auto overflow-x-hidden py-6 custom-scrollbar">
                 {(() => {
                     const sections = menuItems.reduce((acc: Record<string, AppMenuItem[]>, item) => {
-                        const sectionKey = item.section || "Main Menu";
+                        const rawSectionKey = item.section || "Main Menu";
+                        const sectionKey =
+                            effectiveCompanyRoleScope === "admin" && rawSectionKey === "Developer"
+                                ? "Admin"
+                                : rawSectionKey;
                         if (!acc[sectionKey]) acc[sectionKey] = [];
                         acc[sectionKey].push(item);
                         return acc;

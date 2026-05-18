@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
+import { hasDeveloperScope } from "@/lib/companyRoleScope";
 
 type KycRow = {
   id: number;
@@ -18,11 +20,18 @@ type KycRow = {
 const statusOptions = ["", "PENDING", "VERIFIED", "REJECTED"];
 
 export default function CompanyKycPage() {
+  const { user } = useAuth();
+  const canAccess = hasDeveloperScope(user);
   const [status, setStatus] = useState("");
   const [rows, setRows] = useState<KycRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadRows = useCallback(async () => {
+    if (!canAccess) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const response = await api.get("/mlm/kyc", { params: { status, limit: 200 } });
@@ -35,13 +44,21 @@ export default function CompanyKycPage() {
     } finally {
       setLoading(false);
     }
-  }, [status]);
+  }, [canAccess, status]);
 
   useEffect(() => {
+    if (!canAccess) {
+      setLoading(false);
+      return;
+    }
     void loadRows();
-  }, [loadRows]);
+  }, [canAccess, loadRows]);
 
   const updateStatus = async (row: KycRow, next: "VERIFIED" | "REJECTED") => {
+    if (!canAccess) {
+      toast.error("Access denied");
+      return;
+    }
     try {
       await api.patch(`/mlm/kyc/${row.id}`, { status: next });
       toast.success(`User #${row.id} marked ${next}`);
@@ -56,6 +73,13 @@ export default function CompanyKycPage() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
+      {!canAccess ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
+          Access denied for KYC Review.
+        </div>
+      ) : null}
+      {canAccess ? (
+        <>
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">KYC Review Queue</h1>
@@ -111,6 +135,8 @@ export default function CompanyKycPage() {
           </tbody>
         </table>
       </div>
+        </>
+      ) : null}
     </div>
   );
 }

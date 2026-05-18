@@ -18,6 +18,7 @@ type RoiSubscription = {
   status: string;
   startedAt: string;
   expiresAt: string | null;
+  roiCreditBalanceType?: string;
   roiPercent: number;
   dailyIncomePercent: number;
   baseRoiPercent?: number;
@@ -232,9 +233,12 @@ export default function DappRoiPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         {sub.workingGainActive ? (
                           <span className="rounded-full border border-[#123a62] bg-[#0b1930] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5bbcff]">
-                            {sub.workingGainLabel || "Working Gain"} +{formatPercent(sub.workingGainExtraRoiPercent, 2)}%
+                            {sub.workingGainLabel || "Booster Gain"} {sub.maxReturnMultiplier ? `${sub.maxReturnMultiplier}X` : ""}
                           </span>
                         ) : null}
+                        <span className="rounded-full border border-[#1b3452] bg-[#0b1930] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5bbcff]">
+                          {(sub.roiCreditBalanceType || "roi_balance").toUpperCase()}
+                        </span>
                         <span className="rounded-full border border-[#3a2f09] bg-[#201a08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#f0b90b]">
                           {sub.status}
                         </span>
@@ -261,16 +265,16 @@ export default function DappRoiPage() {
                       </div>
                       {sub.workingGainActive && (
                         <div className="rounded-xl border border-[#123a62]/30 bg-[#0b1930]/40 p-3">
-                          <p className="text-[11px] uppercase tracking-wide text-[#5bbcff]">Booster Gain %</p>
+                          <p className="text-[11px] uppercase tracking-wide text-[#5bbcff]">Booster Gain</p>
                           <p className="mt-1 font-semibold text-[#5bbcff]">
-                            +{formatPercent(sub.workingGainExtraRoiPercent, 4)}%
+                            {sub.maxReturnMultiplier ? `${sub.maxReturnMultiplier}X` : (sub.workingGainLabel || "Active")}
                           </p>
                         </div>
                       )}
                       <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-3">
                         <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Total Daily %</p>
                         <p className="mt-1 font-semibold text-[#f5f5f5]">
-                          {formatPercent(sub.dailyIncomePercent, 4)}%
+                          {formatPercent(sub.baseDailyIncomePercent ?? sub.dailyIncomePercent, 4)}%
                         </p>
                       </div>
                       <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-3">
@@ -288,7 +292,7 @@ export default function DappRoiPage() {
                       <div className="rounded-xl border border-[#1e2329] bg-[#161a20] p-3">
                         <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Income Cap</p>
                         <p className="mt-1 font-semibold text-[#f5f5f5]">
-                          {formatTokenAmount(sub.maxIncomeCap)} {sub.tokenSymbol}
+                          {formatTokenAmount(Number(sub.amount || 0) * Number(sub.maxReturnMultiplier || 1))} {sub.tokenSymbol}
                           {sub.workingGainActive && sub.baseMaxReturnMultiplier && sub.baseMaxReturnMultiplier !== sub.maxReturnMultiplier
                             ? ` (${formatPercent(sub.maxReturnMultiplier, 2)}x from ${formatPercent(sub.baseMaxReturnMultiplier, 2)}x)`
                             : ""}
@@ -323,7 +327,7 @@ export default function DappRoiPage() {
                         </div>
                         <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-[#b7bdc6]">
                           <p>Projected total ROI income: {formatTokenAmount(sub.estimatedTotalIncome)} {sub.tokenSymbol}</p>
-                          <p>Total return target: {formatTokenAmount(Number(sub.estimatedTotalReturn || (sub.amount + sub.estimatedTotalIncome)))} {sub.tokenSymbol}</p>
+                          <p>Total return target: {formatTokenAmount(Number(sub.amount || 0) * Number(sub.maxReturnMultiplier || 1))} {sub.tokenSymbol}</p>
                           {sub.workingGainActive ? <p>Working gain active since: {formatDate(sub.workingGainQualifiedAt || null)}</p> : <p>Working gain status: Not yet qualified</p>}
                           <p className="inline-flex items-center gap-1"><Clock3 className="h-4 w-4 text-[#f0b90b]" /> Credit at {profile?.mlmSettings?.roi_credit_time_utc || "00:00"} UTC</p>
                           {/* <p className="inline-flex items-center gap-1"><Wallet className="h-4 w-4 text-[#5bbcff]" /> Wallet posting follows company ROI settings</p> */}
