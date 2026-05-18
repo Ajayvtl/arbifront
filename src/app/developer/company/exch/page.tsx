@@ -202,7 +202,15 @@ export default function ExchangeRoutingPage() {
     setLiveRateLoading(true);
     try {
       const res = await api.get("/admin/exchange-config/live-rate", {
-        params: { companyId: authCompanyId, profileId: profileId || form.id || undefined },
+        params: {
+          companyId: authCompanyId,
+          profileId: profileId || form.id || undefined,
+          _t: Date.now(),
+        },
+        headers: {
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
       });
       const rate = Number(res.data?.data?.rateUsd ?? 0);
       setLiveRateNow(Number.isFinite(rate) && rate > 0 ? rate : null);
