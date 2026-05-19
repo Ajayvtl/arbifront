@@ -92,6 +92,7 @@ export default function DappPlanPaymentPage() {
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [paymentStep, setPaymentStep] = useState("");
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   const parsedPlanId = useMemo(() => Number(params?.planId || 0), [params?.planId]);
   const paymentEnvironment = useMemo(() => {
@@ -234,9 +235,35 @@ export default function DappPlanPaymentPage() {
       return;
     }
 
+    const logToTerminal = async (step: string, orderId?: number, data?: unknown, error?: unknown) => {
+      try {
+        await api.post("/payments/log-step", {
+          step,
+          orderId,
+          data,
+          error: error ? (typeof error === "object" ? JSON.stringify(error) : String(error)) : undefined,
+        });
+      } catch (err) {
+        console.warn("Failed to write to terminal log:", err);
+      }
+    };
+
     setPaying(true);
     setPaymentStep(paymentMode === "SIMULATED" ? "Creating simulated payment intent..." : "Preparing wallet session...");
+    let activeOrderId: number | undefined = undefined;
+
     try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem("isPaying", "true");
+      }
+      await logToTerminal("1. Payment Flow Initiated", undefined, {
+        planId: matchedPlan.id,
+        planName: matchedPlan.name,
+        amount: numericAmount,
+        mode: paymentMode,
+        environment: paymentEnvironment,
+      });
+
       setPaymentStep("Creating payment intent...");
       const intentRes = await api.post("/payments/intent", {
         planId: matchedPlan.id,
@@ -244,31 +271,37 @@ export default function DappPlanPaymentPage() {
         environment: paymentEnvironment,
       });
       const intent = intentRes.data?.data || {};
+      activeOrderId = intent.orderId;
+
+      await logToTerminal("2. Payment Intent Created", activeOrderId, intent);
 
       if (paymentMode === "SIMULATED") {
         setPaymentStep("Marking test payment as paid...");
         await api.post("/payments/simulate", { orderId: intent.orderId });
+        await logToTerminal("3. Simulated Payment Processed", activeOrderId);
         toast.success("Simulated payment completed and package activated");
         router.replace("/dapp/transactions");
         return;
       }
 
       const provider = getInjectedProvider() as Eip1193Provider | null;
+      await logToTerminal("4. Check Wallet Provider Status", activeOrderId, {
+        hasProvider: !!provider,
+      });
+
       if (!provider) {
         throw new Error("No injected wallet detected. Open this page in your wallet browser or enable your wallet extension.");
       }
 
-      const existing = (await provider.request({ method: "eth_accounts" })) as string[] | undefined;
-      if (!Array.isArray(existing) || existing.length === 0) {
-        await provider.request({ method: "eth_requestAccounts" });
+      let accounts = (await provider.request({ method: "eth_accounts" })) as string[] | undefined;
+      if (!Array.isArray(accounts) || accounts.length === 0) {
+        accounts = (await provider.request({ method: "eth_requestAccounts" })) as string[] | undefined;
       }
-
-      const ethersProvider = new BrowserProvider(provider as unknown as never);
-      const signer = await ethersProvider.getSigner();
-      const from = await signer.getAddress();
+      const from = accounts?.[0];
       if (!from) {
         throw new Error("Wallet account not available");
       }
+
       const requiredAmount = Number(intent.amount || numericAmount);
       if (!Number.isFinite(requiredAmount) || requiredAmount <= 0) {
         throw new Error("Invalid payment amount");
@@ -278,6 +311,13 @@ export default function DappPlanPaymentPage() {
       const targetChainIdHex = intent.chainId ? `0x${Number(intent.chainId).toString(16)}` : "0x38";
       const currentChainId = await provider.request({ method: "eth_chainId" });
       const hexChainId = typeof currentChainId === "number" ? `0x${currentChainId.toString(16)}` : String(currentChainId).toLowerCase();
+
+      await logToTerminal("5. Target Network Switch Request", activeOrderId, {
+        targetChainIdHex,
+        currentChainId,
+        hexChainId,
+        fromAddress: from,
+      });
 
       if (hexChainId !== targetChainIdHex) {
         try {
@@ -305,11 +345,24 @@ export default function DappPlanPaymentPage() {
         }
       }
 
+      // Re-instantiate ethers BrowserProvider and signer after network switch to avoid stale refs
+      const ethersProvider = new BrowserProvider(provider as unknown as never);
+      const signer = await ethersProvider.getSigner();
+
       setPaymentStep(
         intent.paymentAssetType === "erc20"
           ? `Waiting for wallet confirmation (${String(intent.tokenSymbol || channel.tokenSymbol)} transfer)...`
           : "Waiting for wallet confirmation..."
       );
+
+      await logToTerminal("6. Sending Transaction to Wallet", activeOrderId, {
+        receiverAddress: intent.receiverAddress,
+        amount: requiredAmount,
+        assetType: intent.paymentAssetType,
+        tokenAddress: intent.tokenAddress,
+        tokenDecimals: intent.tokenDecimals,
+        signerAddress: await signer.getAddress(),
+      });
 
       let tx: TransactionResponse;
       if (intent.paymentAssetType === "erc20") {
@@ -326,21 +379,90 @@ export default function DappPlanPaymentPage() {
         });
       }
 
+      await logToTerminal("7. Transaction Signed & Submitted by Wallet", activeOrderId, {
+        txHash: tx.hash,
+        from: tx.from,
+        to: tx.to,
+        gasPrice: tx.gasPrice?.toString(),
+        nonce: tx.nonce,
+      });
+
+      // Save transaction hash to backend immediately
+      try {
+        await api.post("/payments/update-hash", { orderId: intent.orderId, txHash: tx.hash });
+        await logToTerminal("8. Transaction Hash Registered in DB", activeOrderId, { txHash: tx.hash });
+      } catch (hashError) {
+        console.warn("Failed to save transaction hash on backend:", hashError);
+        await logToTerminal("8. Warning: Hash registration failed", activeOrderId, { error: String(hashError) });
+      }
+
       setPaymentStep("Confirming transaction on-chain...");
-      await tx.wait(1);
+      try {
+        await Promise.race([
+          tx.wait(1),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 8000))
+        ]);
+      } catch (err) {
+        console.warn("On-chain wait timed out or failed on client, proceeding directly to backend verification.", err);
+      }
 
-      setPaymentStep("Verifying payment with backend...");
-      await verifyPaymentWithRetry(intent.orderId, tx.hash);
+      setPaymentStep("Verifying payment... (you can check back later)");
+      await logToTerminal("9. On-Chain Verification Request Started", activeOrderId, { txHash: tx.hash });
 
-      toast.success("Payment verified and package activated");
-      router.replace("/dapp/transactions");
+      setCountdown(20);
+
+      let verified = false;
+      const orderIdForVerify = intent.orderId;
+      const hashForVerify = tx.hash;
+
+      const verifyLoop = async () => {
+        for (let secondsElapsed = 0; secondsElapsed < 20; secondsElapsed += 4) {
+          try {
+            await api.post("/payments/verify", { orderId: orderIdForVerify, txHash: hashForVerify });
+            verified = true;
+            break;
+          } catch (e) {
+            await new Promise((resolve) => setTimeout(resolve, 4000));
+          }
+        }
+      };
+
+      const countdownInterval = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev === null || prev <= 1) {
+            clearInterval(countdownInterval);
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      await verifyLoop();
+      
+      clearInterval(countdownInterval);
+      setCountdown(null);
+
+      if (verified) {
+        await logToTerminal("10. Payment Verification Success", activeOrderId);
+        toast.success("Payment verified and package activated!");
+        router.replace("/dapp/transactions");
+      } else {
+        await logToTerminal("10. Verification Incomplete after 20s", activeOrderId);
+        toast.success("Payment is being verified. You can check the status on the transactions log shortly.");
+        router.replace("/dapp/transactions");
+      }
     } catch (error: unknown) {
       const message =
         (error as { response?: { data?: { message?: string } }; message?: string }).response?.data?.message ||
         (error as { message?: string }).message ||
         "Payment failed";
+      
+      await logToTerminal("ERROR. Payment Flow Failed", activeOrderId, { message, step: paymentStep }, error);
       toast.error(message);
     } finally {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem("isPaying");
+      }
       setPaying(false);
       setPaymentStep("");
     }
@@ -505,19 +627,37 @@ export default function DappPlanPaymentPage() {
                   </div>
                 </div>
 
-                {paymentStep ? (
+                {paymentStep && countdown === null ? (
                   <p className="text-xs text-[#5bbcff]">{paymentStep}</p>
                 ) : null}
 
-                <button
-                  type="button"
-                  disabled={paying || !amount || Number(amount) <= 0 || !matchedPlan}
-                  onClick={() => void handleConfirmPayment()}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#f0b90b] px-4 py-3 font-semibold text-[#181a20] hover:bg-[#f8d45c] disabled:opacity-60"
-                >
-                  {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wallet className="w-4 h-4" />}
-                  {paying ? "Processing..." : paymentMode === "SIMULATED" ? "Simulate Payment" : `Pay ${channel.tokenSymbol}`}
-                </button>
+                {countdown !== null ? (
+                  <div className="rounded-2xl border border-[#1e3a5f] bg-[#0c1a30] p-4 space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-semibold text-white">Verifying payment...</span>
+                      <span className="text-[#5bbcff] font-mono font-bold">{countdown}s</span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-[#162a45]">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#5bbcff] to-[#f0b90b] transition-all duration-1000"
+                        style={{ width: `${(countdown / 20) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-[#8aa4bf] leading-normal">
+                      Connecting to the blockchain network to index your transfer. (You can check back later)
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={paying || !amount || Number(amount) <= 0 || !matchedPlan}
+                    onClick={() => void handleConfirmPayment()}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#f0b90b] px-4 py-3 font-semibold text-[#181a20] hover:bg-[#f8d45c] disabled:opacity-60"
+                  >
+                    {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wallet className="w-4 h-4" />}
+                    {paying ? "Processing..." : paymentMode === "SIMULATED" ? "Simulate Payment" : `Pay ${channel.tokenSymbol}`}
+                  </button>
+                )}
 
                 <p className="text-xs text-[#848e9c] inline-flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-[#0ecb81]" />

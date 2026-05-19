@@ -426,9 +426,47 @@ export default function ExchangeRoutingPage() {
     }
   }, [canAccess, authCompanyId]);
 
+  const [failures, setFailures] = useState<any[]>([]);
+  const [failuresLoading, setFailuresLoading] = useState(false);
+  const [retryingFailureId, setRetryingFailureId] = useState<number | null>(null);
+
+  const loadFailures = useCallback(async () => {
+    if (!canAccess) return;
+    setFailuresLoading(true);
+    try {
+      const res = await api.get("/admin/exchange-config/failures", {
+        params: { companyId: authCompanyId }
+      });
+      setFailures((res.data?.data || []) as any[]);
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError.response?.data?.message || "Failed to load failed sweeps");
+    } finally {
+      setFailuresLoading(false);
+    }
+  }, [canAccess, authCompanyId]);
+
+  const handleRetryFailure = async (failureId: number) => {
+    setRetryingFailureId(failureId);
+    try {
+      await api.post(`/admin/exchange-config/failures/${failureId}/retry`, {
+        companyId: authCompanyId
+      });
+      toast.success("Sweep retried successfully!");
+      void loadFailures();
+      void loadProfiles();
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError.response?.data?.message || "Failed to retry sweep transfer");
+    } finally {
+      setRetryingFailureId(null);
+    }
+  };
+
   useEffect(() => {
     void loadProfiles();
-  }, [loadProfiles]);
+    void loadFailures();
+  }, [loadProfiles, loadFailures]);
 
   const resetForm = () => {
     setForm(defaultProfile(authCompanyId));
@@ -1999,6 +2037,144 @@ export default function ExchangeRoutingPage() {
                 );
               })}
             </div>
+            )}
+          </div>
+
+          {/* FAILED SWEEPS & RETRY QUEUE */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-100 dark:border-slate-800 p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-amber-500" />
+                <h2 className="text-xl font-bold text-slate-800 dark:text-white">Failed Sweeps & Retry Queue</h2>
+              </div>
+              <button 
+                onClick={loadFailures} 
+                className="text-amber-600 dark:text-amber-400 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-950 transition animate-hover"
+                disabled={failuresLoading}
+                title="Refresh failure queue"
+              >
+                <RefreshCw className={`h-4.5 w-4.5 ${failuresLoading ? "animate-spin" : ""}`} />
+              </button>
+            </div>
+
+            {failuresLoading ? (
+              <div className="text-center py-12 text-slate-400">Loading failed sweep queue...</div>
+            ) : failures.length === 0 ? (
+              <div className="text-center py-12 border-2 border-dashed border-slate-100 dark:border-slate-850 rounded-2xl">
+                <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-3" />
+                <h3 className="font-semibold text-slate-600 dark:text-slate-400 mb-1">Queue is Clear!</h3>
+                <p className="text-xs text-slate-400 px-6 max-w-sm mx-auto">
+                  All exchange sweeps have executed successfully. There are no outstanding routing failures.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {failures.map((fail) => {
+                  const isRetrying = retryingFailureId === fail.id;
+                  const isSuccess = fail.status === "SUCCESS";
+                  return (
+                    <div 
+                      key={fail.id}
+                      className={`border rounded-2xl p-4 space-y-3 transition hover:shadow-md relative overflow-hidden ${
+                        isSuccess 
+                          ? "border-emerald-200 bg-emerald-50/20 dark:bg-emerald-950/10 dark:border-emerald-900/50" 
+                          : "border-amber-200 bg-amber-50/20 dark:bg-amber-950/10 dark:border-amber-900/50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-slate-700 dark:text-slate-300">
+                              Order ID: #{fail.orderId}
+                            </span>
+                            <span className={`text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                              isSuccess 
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" 
+                                : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                            }`}>
+                              {fail.status}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400">
+                            {new Date(fail.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="block text-[10px] font-bold text-slate-400 uppercase">Package value</span>
+                          <span className="font-extrabold text-slate-800 dark:text-white font-mono text-sm">
+                            ${fail.packageAmount}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Details list */}
+                      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100/50 dark:border-slate-850 space-y-2 text-xs">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <span className="block text-[9px] text-slate-400 uppercase font-bold">Lacking Type</span>
+                            <span className="font-extrabold text-amber-600 dark:text-amber-400">
+                              {fail.lackingType}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="block text-[9px] text-slate-400 uppercase font-bold">Lacking Amount</span>
+                            <span className="font-extrabold text-rose-600 dark:text-rose-400 font-mono">
+                              {fail.lackingAmount}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 border-t border-slate-100/50 dark:border-slate-800/50 pt-2">
+                          <div>
+                            <span className="block text-[9px] text-slate-400 uppercase font-bold">Member Wallet</span>
+                            <span 
+                              className="font-mono font-medium text-indigo-600 dark:text-indigo-400 break-all select-all hover:underline cursor-pointer"
+                              title="Click to copy full address"
+                              onClick={() => {
+                                void navigator.clipboard.writeText(fail.walletAddress);
+                                toast.success("Member wallet address copied!");
+                              }}
+                            >
+                              {fail.walletAddress ? `${fail.walletAddress.slice(0, 6)}...${fail.walletAddress.slice(-4)}` : "unknown"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="block text-[9px] text-slate-400 uppercase font-bold">Required Gas Cost</span>
+                            <span className="font-mono font-extrabold text-slate-700 dark:text-slate-300">
+                              {fail.gasRequired}
+                            </span>
+                          </div>
+                        </div>
+
+                        {fail.errorMessage && (
+                          <div className="border-t border-slate-100/50 dark:border-slate-800/50 pt-2">
+                            <span className="block text-[9px] text-slate-400 uppercase font-bold mb-0.5">Error Log</span>
+                            <div className="p-2 rounded bg-rose-50/50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 font-mono text-[10px] whitespace-pre-wrap break-all border border-rose-100/30 dark:border-rose-900/10">
+                              {fail.errorMessage}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Action Button */}
+                      {!isSuccess && (
+                        <div className="flex justify-end pt-1">
+                          <button
+                            type="button"
+                            disabled={isRetrying}
+                            onClick={() => void handleRetryFailure(fail.id)}
+                            className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-xs font-bold transition disabled:opacity-50 active:scale-95 shadow-md shadow-amber-500/10"
+                          >
+                            <RefreshCw className={`h-3.5 w-3.5 ${isRetrying ? "animate-spin" : ""}`} />
+                            {isRetrying ? "Retrying Sweep..." : "Retry Sweep Order"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>

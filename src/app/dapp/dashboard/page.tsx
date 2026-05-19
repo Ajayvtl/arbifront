@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Activity, AlertTriangle, ArrowUpRight, BadgeCheck, BarChart3, Copy, Gift, Loader2, Network, QrCode, Sparkles, Wallet, X, Rocket, GitBranch, Trophy, UserPlus } from "lucide-react";
+import { Activity, AlertTriangle, ArrowUpRight, BadgeCheck, BarChart3, Copy, Gift, Loader2, Network, QrCode, Sparkles, Wallet, X, Rocket, GitBranch, Trophy, UserPlus, Check, ExternalLink } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
@@ -259,6 +259,20 @@ export default function DappDashboardPage() {
       toast.success("Referral link copied");
     } catch {
       toast.error("Failed to copy referral link");
+    }
+  };
+
+  const [copiedTxId, setCopiedTxId] = useState<string | null>(null);
+  const handleCopyExplorerLink = async (txHash: string, uniqueId: string) => {
+    if (!txHash) return;
+    const fullLink = `https://bscscan.com/tx/${txHash}`;
+    try {
+      await navigator.clipboard.writeText(fullLink);
+      setCopiedTxId(uniqueId);
+      toast.success("BscScan link copied!");
+      setTimeout(() => setCopiedTxId(null), 2000);
+    } catch {
+      toast.error("Failed to copy link");
     }
   };
 
@@ -743,7 +757,7 @@ export default function DappDashboardPage() {
             <>
               <div className="space-y-3 md:hidden">
                 {orders.slice(0, 5).map((o) => (
-                  <div key={o.id} className="rounded-xl border border-[#2b3139] bg-[#111418] p-4">
+                  <div key={o.id} className="rounded-xl border border-[#2b3139] bg-[#111418] p-4 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-semibold text-[#f5f5f5]">{o.plan_name || `Plan ${o.plan_id}`}</p>
@@ -753,7 +767,7 @@ export default function DappDashboardPage() {
                         {o.status}
                       </span>
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <p className="text-[11px] uppercase tracking-wide text-[#848e9c]">Amount</p>
                         <p className="text-[#f5f5f5]">{o.amount} {o.token_symbol}</p>
@@ -763,7 +777,71 @@ export default function DappDashboardPage() {
                         <p className="text-[#f5f5f5]">{o.chain_name || o.chain_id || "-"}</p>
                       </div>
                     </div>
-                    <p className="mt-3 text-xs text-[#848e9c]">{formatDate(o.created_at)}</p>
+
+                    {(o.tx_hash || o.exch_tx_hash) ? (
+                      <div className="border-t border-[#2b3139]/50 pt-2 space-y-1.5">
+                        {o.tx_hash && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[#848e9c]">Deposit:</span>
+                            <div className="flex items-center gap-2">
+                              <span 
+                                onClick={() => void handleCopyExplorerLink(o.tx_hash!, `mobile-pay-${o.id}`)}
+                                className="font-mono text-[#f0b90b] hover:text-[#f8d45c] hover:underline cursor-pointer flex items-center gap-1.5"
+                                title="Click to copy BscScan link"
+                              >
+                                {o.tx_hash.slice(0, 6)}...{o.tx_hash.slice(-4)}
+                                {copiedTxId === `mobile-pay-${o.id}` ? (
+                                  <Check className="h-3 w-3 text-emerald-500 animate-bounce" />
+                                ) : (
+                                  <Copy className="h-3 w-3 text-[#848e9c]" />
+                                )}
+                              </span>
+                              <a 
+                                href={`https://bscscan.com/tx/${o.tx_hash}`} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="text-slate-400 hover:text-white"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
+                          </div>
+                        )}
+
+                        {o.exch_tx_hash && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[#5bbcff] font-semibold flex items-center gap-1">
+                              <span className="h-1 w-1 rounded-full bg-[#5bbcff] animate-pulse"></span>
+                              Sweep ({o.exch_amount || "—"} Tokens):
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span 
+                                onClick={() => void handleCopyExplorerLink(o.exch_tx_hash!, `mobile-sweep-${o.id}`)}
+                                className="font-mono text-[#f0b90b] hover:text-[#f8d45c] hover:underline cursor-pointer flex items-center gap-1.5"
+                                title="Click to copy BscScan link"
+                              >
+                                {o.exch_tx_hash.slice(0, 6)}...{o.exch_tx_hash.slice(-4)}
+                                {copiedTxId === `mobile-sweep-${o.id}` ? (
+                                  <Check className="h-3 w-3 text-emerald-500 animate-bounce" />
+                                ) : (
+                                  <Copy className="h-3 w-3 text-[#848e9c]" />
+                                )}
+                              </span>
+                              <a 
+                                href={`https://bscscan.com/tx/${o.exch_tx_hash}`} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="text-slate-400 hover:text-white"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+
+                    <p className="text-xs text-[#848e9c]">{formatDate(o.created_at)}</p>
                   </div>
                 ))}
               </div>
@@ -776,20 +854,91 @@ export default function DappDashboardPage() {
                       <th className="py-2 pr-3">Amount</th>
                       <th className="py-2 pr-3">Chain</th>
                       <th className="py-2 pr-3">Status</th>
-                      <th className="py-2 pr-3">Tx</th>
+                      <th className="py-2 pr-3">Txs (Copy Explorer Link)</th>
                       <th className="py-2 pr-3">Created</th>
                     </tr>
                   </thead>
                   <tbody>
                     {orders.map((o) => (
-                      <tr key={o.id} className="border-b border-[#1e2329] text-[#f5f5f5]">
-                        <td className="py-2 pr-3">#{o.id}</td>
+                      <tr key={o.id} className="border-b border-[#1e2329] text-[#f5f5f5] hover:bg-[#1f242d]/30 transition">
+                        <td className="py-2 pr-3 font-semibold">#{o.id}</td>
                         <td className="py-2 pr-3">{o.plan_name || `Plan ${o.plan_id}`}</td>
-                        <td className="py-2 pr-3">{o.amount} {o.token_symbol}</td>
+                        <td className="py-2 pr-3 font-medium">{o.amount} {o.token_symbol}</td>
                         <td className="py-2 pr-3">{o.chain_name || o.chain_id || "-"}</td>
-                        <td className="py-2 pr-3">{o.status}</td>
-                        <td className="py-2 pr-3 break-all">{o.tx_hash || "-"}</td>
-                        <td className="py-2 pr-3">{formatDate(o.created_at)}</td>
+                        <td className="py-2 pr-3">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            o.status === "PAID" 
+                              ? "bg-emerald-500/10 text-emerald-500" 
+                              : o.status === "FAILED" 
+                              ? "bg-rose-500/10 text-rose-500"
+                              : "bg-amber-500/10 text-amber-500"
+                          }`}>
+                            {o.status}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-3">
+                          <div className="flex flex-col gap-1.5 max-w-[280px]">
+                            {o.tx_hash ? (
+                              <div className="flex items-center gap-1.5 text-xs">
+                                <span className="text-[10px] text-[#848e9c] font-semibold uppercase tracking-wider">Deposit:</span>
+                                <span 
+                                  onClick={() => void handleCopyExplorerLink(o.tx_hash!, `desktop-pay-${o.id}`)}
+                                  className="font-mono text-[#f0b90b] hover:text-[#f8d45c] hover:underline cursor-pointer flex items-center gap-1.5 select-all"
+                                  title="Click to copy BscScan link"
+                                >
+                                  {o.tx_hash.slice(0, 6)}...{o.tx_hash.slice(-4)}
+                                  {copiedTxId === `desktop-pay-${o.id}` ? (
+                                    <Check className="h-3.5 w-3.5 text-emerald-500 animate-bounce" />
+                                  ) : (
+                                    <Copy className="h-3 w-3 text-slate-400" />
+                                  )}
+                                </span>
+                                <a 
+                                  href={`https://bscscan.com/tx/${o.tx_hash}`} 
+                                  target="_blank" 
+                                  rel="noreferrer" 
+                                  className="text-slate-400 hover:text-white"
+                                  title="Open BscScan"
+                                >
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                              </div>
+                            ) : null}
+
+                            {o.exch_tx_hash ? (
+                              <div className="flex items-center gap-1.5 text-xs">
+                                <span className="text-[10px] text-[#5bbcff] font-semibold uppercase tracking-wider flex items-center gap-0.5">
+                                  <span className="h-1 w-1 rounded-full bg-[#5bbcff] animate-pulse"></span>
+                                  Sweep:
+                                </span>
+                                <span 
+                                  onClick={() => void handleCopyExplorerLink(o.exch_tx_hash!, `desktop-sweep-${o.id}`)}
+                                  className="font-mono text-[#f0b90b] hover:text-[#f8d45c] hover:underline cursor-pointer flex items-center gap-1.5 select-all"
+                                  title={`Click to copy BscScan link (${o.exch_amount || "—"} Tokens)`}
+                                >
+                                  {o.exch_tx_hash.slice(0, 6)}...{o.exch_tx_hash.slice(-4)}
+                                  {copiedTxId === `desktop-sweep-${o.id}` ? (
+                                    <Check className="h-3.5 w-3.5 text-emerald-500 animate-bounce" />
+                                  ) : (
+                                    <Copy className="h-3 w-3 text-slate-400" />
+                                  )}
+                                </span>
+                                <a 
+                                  href={`https://bscscan.com/tx/${o.exch_tx_hash}`} 
+                                  target="_blank" 
+                                  rel="noreferrer" 
+                                  className="text-slate-400 hover:text-white"
+                                  title="Open BscScan"
+                                >
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                              </div>
+                            ) : null}
+
+                            {!o.tx_hash && !o.exch_tx_hash && <span className="text-slate-500">—</span>}
+                          </div>
+                        </td>
+                        <td className="py-2 pr-3 text-xs text-[#848e9c]">{formatDate(o.created_at)}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -85,6 +85,38 @@ export default function DappTransactionsPage() {
   const [hashQuery, setHashQuery] = useState("");
   const [fromDateTime, setFromDateTime] = useState("");
   const [toDateTime, setToDateTime] = useState("");
+  const [manualHashes, setManualHashes] = useState<Record<number, string>>({});
+
+  const [verifyingOrderId, setVerifyingOrderId] = useState<number | null>(null);
+  const handleReverify = async (orderId: number, txHash: string) => {
+    const trimmedHash = String(txHash || "").trim();
+    setVerifyingOrderId(orderId);
+    const toastId = toast.loading(
+      trimmedHash
+        ? "Verifying payment on-chain... Please wait."
+        : "Searching blockchain explorer for matching transaction..."
+    );
+    try {
+      if (trimmedHash) {
+        await api.post("/payments/update-hash", { orderId, txHash: trimmedHash });
+      }
+      
+      await api.post("/payments/verify", { orderId, txHash: trimmedHash || undefined });
+      toast.success("Payment verified and package activated!", { id: toastId });
+      
+      const res = await api.get("/payments/orders", { params: { page, limit: 10 } });
+      const payload = (res.data?.data || { items: [] }) as PaginatedOrders;
+      setRows(payload.items || []);
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { message?: string } }; message?: string }).response?.data?.message ||
+        (error as { message?: string }).message ||
+        "Payment verification failed";
+      toast.error(message, { id: toastId });
+    } finally {
+      setVerifyingOrderId(null);
+    }
+  };
 
   // Withdrawals state
   const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>([]);
@@ -441,7 +473,58 @@ export default function DappTransactionsPage() {
                         </div>
                         <div>
                           <p className="text-[11px] uppercase tracking-[0.16em] text-[#7e9cbd]">Tx Hash</p>
-                          <p className="mt-1 break-all text-[#dbe7f3]">{row.tx_hash || "No tx hash yet"}</p>
+                          {row.tx_hash ? (
+                            <div className="mt-1 flex items-center justify-between gap-2 flex-wrap">
+                              <span className="break-all font-mono text-[#dbe7f3] text-xs">{row.tx_hash}</span>
+                              {row.status === "INITIATED" && (
+                                <button
+                                  type="button"
+                                  disabled={verifyingOrderId === row.id}
+                                  onClick={() => handleReverify(row.id, row.tx_hash!)}
+                                  className="rounded bg-[#f0b90b] px-2.5 py-1 text-[11px] font-bold text-[#181a20] hover:bg-[#f8d45c] disabled:opacity-50"
+                                >
+                                  {verifyingOrderId === row.id ? "Verifying..." : "Verify Now"}
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="mt-2 flex flex-col gap-2">
+                              {row.status === "INITIATED" ? (
+                                <>
+                                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <span className="text-[#8aa4bf] text-xs">No hash logged yet</span>
+                                    <button
+                                      type="button"
+                                      disabled={verifyingOrderId === row.id}
+                                      onClick={() => handleReverify(row.id, "")}
+                                      className="rounded bg-[#f0b90b] px-2.5 py-1 text-[11px] font-bold text-[#181a20] hover:bg-[#f8d45c] disabled:opacity-50"
+                                    >
+                                      {verifyingOrderId === row.id ? "Scanning Explorer..." : "Auto-Verify"}
+                                    </button>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-1">
+                                    <input
+                                      type="text"
+                                      placeholder="Or paste Tx Hash here"
+                                      value={manualHashes[row.id] || ""}
+                                      onChange={(e) => setManualHashes(prev => ({ ...prev, [row.id]: e.target.value }))}
+                                      className="flex-1 rounded border border-[#24364a] bg-[#0d1726] px-2 py-1 text-xs text-white outline-none placeholder:text-[#506e8b]"
+                                    />
+                                    <button
+                                      type="button"
+                                      disabled={verifyingOrderId === row.id || !manualHashes[row.id]}
+                                      onClick={() => handleReverify(row.id, manualHashes[row.id])}
+                                      className="rounded bg-[#5bbcff] px-3 py-1 text-xs font-bold text-[#060b14] hover:bg-[#86cbff] disabled:opacity-50"
+                                    >
+                                      Verify
+                                    </button>
+                                  </div>
+                                </>
+                              ) : (
+                                <span className="text-[#8aa4bf] text-xs">No transaction hash</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <div>
@@ -484,7 +567,58 @@ export default function DappTransactionsPage() {
                               {row.status}
                             </span>
                           </td>
-                          <td className="max-w-[220px] px-4 py-4 align-top break-all text-[#c8d6e5]">{row.tx_hash || "-"}</td>
+                           <td className="max-w-[240px] px-4 py-4 align-top break-all text-[#c8d6e5]">
+                            {row.tx_hash ? (
+                              <div className="flex flex-col gap-1.5">
+                                <span className="font-mono text-xs text-[#c8d6e5]">{row.tx_hash}</span>
+                                {row.status === "INITIATED" && (
+                                  <button
+                                    type="button"
+                                    disabled={verifyingOrderId === row.id}
+                                    onClick={() => handleReverify(row.id, row.tx_hash!)}
+                                    className="w-fit rounded bg-[#f0b90b] px-2 py-0.5 text-[11px] font-bold text-[#181a20] hover:bg-[#f8d45c] disabled:opacity-50"
+                                  >
+                                    {verifyingOrderId === row.id ? "Verifying..." : "Verify Now"}
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex flex-col gap-2 max-w-[200px]">
+                                {row.status === "INITIATED" ? (
+                                  <>
+                                    <span className="text-[#8aa4bf] text-xs">No hash logged</span>
+                                    <button
+                                      type="button"
+                                      disabled={verifyingOrderId === row.id}
+                                      onClick={() => handleReverify(row.id, "")}
+                                      className="w-fit rounded bg-[#f0b90b] px-2 py-0.5 text-[11px] font-bold text-[#181a20] hover:bg-[#f8d45c] disabled:opacity-50"
+                                    >
+                                      {verifyingOrderId === row.id ? "Scanning..." : "Auto-Verify"}
+                                    </button>
+                                    <div className="flex items-center gap-1 mt-1">
+                                      <input
+                                        type="text"
+                                        placeholder="Paste Tx Hash"
+                                        value={manualHashes[row.id] || ""}
+                                        onChange={(e) => setManualHashes(prev => ({ ...prev, [row.id]: e.target.value }))}
+                                        className="w-28 rounded border border-[#24364a] bg-[#0d1726] px-1.5 py-0.5 text-[10px] text-white outline-none placeholder:text-[#506e8b]"
+                                      />
+                                      <button
+                                        type="button"
+                                        disabled={verifyingOrderId === row.id || !manualHashes[row.id]}
+                                        onClick={() => handleReverify(row.id, manualHashes[row.id])}
+                                        className="rounded bg-[#5bbcff] px-2 py-0.5 text-[10px] font-bold text-[#060b14] hover:bg-[#86cbff] disabled:opacity-50"
+                                      >
+                                        Verify
+                                      </button>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <span className="text-[#8aa4bf] text-xs">-</span>
+                                )}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-4 py-4 align-top whitespace-nowrap">{formatDate(row.created_at)}</td>
                           <td className="px-4 py-4 align-top whitespace-nowrap">{formatDate(row.paid_at)}</td>
                         </tr>

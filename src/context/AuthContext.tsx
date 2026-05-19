@@ -123,9 +123,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (typeof window === 'undefined' || !user || user.role !== 'USER') return;
 
         const handleAccountsChanged = (...args: unknown[]) => {
-            const accounts = (args[0] as string[]) || [];
+            let accounts: string[] = [];
+            if (Array.isArray(args[0])) {
+                accounts = args[0] as string[];
+            } else if (typeof args[0] === 'string') {
+                accounts = [args[0]];
+            } else {
+                return; // ignore non-standard event inputs
+            }
+
             if (accounts.length === 0) {
-                logout();
+                const isPaying = typeof window !== 'undefined' && sessionStorage.getItem("isPaying") === "true";
+                if (!isPaying) {
+                    logout();
+                }
             } else {
                 const connectedAddress = accounts[0].toLowerCase();
                 const userAddress = (user.walletAddress || user.wallet_address || '').toLowerCase();
@@ -137,8 +148,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
 
         const handleDisconnect = () => {
-            logout();
-            toast.error("Wallet disconnected.");
+            const isPaying = typeof window !== 'undefined' && sessionStorage.getItem("isPaying") === "true";
+            if (!isPaying) {
+                logout();
+                toast.error("Wallet disconnected.");
+            }
         };
 
         const eth = (window as Window & { ethereum?: EthereumEventProvider }).ethereum;
