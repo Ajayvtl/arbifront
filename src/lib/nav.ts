@@ -74,6 +74,8 @@ export const COMPANY_ADMIN_MENU: AppMenuItem[] = [
     { section: "Developer", name: "Wallet Types", href: "/developer/company/wallet-types", icon: "Wallet" },
     { section: "Developer", name: "Network Settings", href: "/developer/company/network-settings", icon: "Activity" },
     { section: "Developer", name: "Exch", href: "/developer/company/exch", icon: "ArrowLeftRight" },
+    { section: "Developer", name: "Exch Logs", href: "/developer/company/exch-logs", icon: "ArrowLeftRight", roleScope: "admin" },
+    { section: "Developer", name: "ROI Credited", href: "/developer/company/roi-credited", icon: "Calculator", roleScope: "admin" },
     { section: "Developer", name: "Testing Tools", href: "/developer/company/testing", icon: "FlaskConical" },
     { section: "Developer", name: "Formulation System", href: "/admin/settings/formula", icon: "FlaskConical", roleScope: "developer" },
     { section: "Developer", name: "Company Settings", href: "/developer/settings/general", icon: "Settings", roleScope: "developer" },
