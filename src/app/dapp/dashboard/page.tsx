@@ -344,11 +344,11 @@ export default function DappDashboardPage() {
             <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">{profile?.metrics?.teamMembers ?? 0}</p>
           </div>
 
-          {/* Total Earning Card — calculated directly from Est. Working + Total Withdrawn */}
+          {/* Total Earning Card — calculated directly from Available to Withdraw + Total Withdrawn */}
           <div className="rounded-2xl border border-[#132235] bg-[#09111c] p-4 shadow-sm">
             <p className="text-[11px] uppercase tracking-wider text-[#a066ff]">Total Earning</p>
             <p className="mt-2 text-2xl font-bold text-[#f5f5f5]">
-              {formatTokenAmount(estWorkingBalance + Number(profile?.metrics?.totalWithdrawn ?? 0))}
+              {formatTokenAmount(Number(profile?.wallet?.withdrawableBalance ?? 0) + Number(profile?.metrics?.totalWithdrawn ?? 0))}
             </p>
             <p className="mt-1 text-[10px] text-[#848e9c]">EST. Total Earning</p>
           </div>
