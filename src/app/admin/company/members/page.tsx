@@ -22,10 +22,20 @@ type Member = {
   direct_count: number;
 };
 
+type MemberStats = {
+  totalMembers: number;
+  activeMembers: number;
+  blockedMembers: number;
+  inactiveMembers: number;
+  totalDirects: number;
+};
+
 export default function CompanyMembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
+  const [memberStats, setMemberStats] = useState<MemberStats | null>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -53,6 +63,26 @@ export default function CompanyMembersPage() {
     return () => clearTimeout(t);
   }, [loadMembers]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadStats = async () => {
+      setStatsLoading(true);
+      try {
+        const response = await api.get("/mlm/commissions/summary", { params: { days: 30 } });
+        const stats = response.data?.data?.memberStats || null;
+        if (!cancelled) {
+          setMemberStats(stats as MemberStats | null);
+        }
+      } catch {
+        if (!cancelled) setMemberStats(null);
+      } finally {
+        if (!cancelled) setStatsLoading(false);
+      }
+    };
+    void loadStats();
+    return () => { cancelled = true; };
+  }, []);
+
   // Reset page when filter changes
   useEffect(() => {
     setCurrentPage(1);
@@ -66,12 +96,18 @@ export default function CompanyMembersPage() {
   }, [members, currentPage, itemsPerPage]);
 
   const stats = useMemo(() => {
-    const total = members.length;
-    const active = members.filter((m) => String(m.status).toLowerCase() === "active" && !m.is_blocked).length;
-    const blocked = members.filter((m) => m.is_blocked || String(m.status).toLowerCase() === "blocked").length;
-    const totalDirects = members.reduce((sum, m) => sum + Number(m.direct_count || 0), 0);
-    return { total, active, blocked, totalDirects };
-  }, [members]);
+    const localTotal = members.length;
+    const localActive = members.filter((m) => !m.is_blocked && (m.status === "ACTIVE" || String(m.status).toLowerCase() === "active")).length;
+    const localBlocked = members.filter((m) => !!m.is_blocked || String(m.status).toLowerCase() === "blocked").length;
+    const localTotalDirects = members.reduce((sum, m) => sum + Number(m.direct_count || 0), 0);
+
+    return {
+      total: memberStats?.totalMembers ?? localTotal,
+      active: memberStats?.activeMembers ?? localActive,
+      blocked: memberStats?.blockedMembers ?? localBlocked,
+      totalDirects: memberStats?.totalDirects ?? localTotalDirects,
+    };
+  }, [members, memberStats]);
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
@@ -82,7 +118,11 @@ export default function CompanyMembersPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4"><p className="text-xs text-slate-500">Total Members</p><p className="text-2xl font-semibold">{stats.total}</p></div>
-        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4"><p className="text-xs text-slate-500">Active</p><p className="text-2xl font-semibold text-emerald-600">{stats.active}</p></div>
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4">
+          <p className="text-xs text-slate-500">Active</p>
+          <p className="text-2xl font-semibold text-emerald-600">{stats.active}</p>
+          {statsLoading && <p className="text-[10px] text-slate-400 mt-1">Syncing dashboard stats…</p>}
+        </div>
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4"><p className="text-xs text-slate-500">Blocked</p><p className="text-2xl font-semibold text-rose-600">{stats.blocked}</p></div>
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4"><p className="text-xs text-slate-500">Total Directs</p><p className="text-2xl font-semibold">{stats.totalDirects}</p></div>
       </div>
@@ -108,7 +148,7 @@ export default function CompanyMembersPage() {
                 <th className="text-left px-4 py-3">Wallet</th>
                 <th className="text-left px-4 py-3">Referral</th>
                 <th className="text-left px-4 py-3">Sponsor</th>
-                <th className="text-left px-4 py-3">Rank</th>
+                {/* <th className="text-left px-4 py-3">Rank</th> */}
                 <th className="text-left px-4 py-3">Directs</th>
                 <th className="text-left px-4 py-3">Balances</th>
                 <th className="text-left px-4 py-3">Status</th>
@@ -119,33 +159,43 @@ export default function CompanyMembersPage() {
                 <tr><td className="px-4 py-6 text-slate-500" colSpan={8}>Loading members...</td></tr>
               ) : paginatedMembers.length === 0 ? (
                 <tr><td className="px-4 py-6 text-slate-500" colSpan={8}>No members found.</td></tr>
-              ) : paginatedMembers.map((m) => (
-                <tr key={m.id} className="border-t border-slate-100 dark:border-slate-800">
-                  <td className="px-4 py-3">#{m.id}</td>
-                  <td className="px-4 py-3 max-w-[220px] truncate" title={m.wallet_address}>{m.wallet_address}</td>
-                  <td className="px-4 py-3">{m.referral_code || "-"}</td>
-                  <td className="px-4 py-3">{m.sponsor_id || "-"}</td>
-                  <td className="px-4 py-3">{m.rank_name || "-"}</td>
-                  <td className="px-4 py-3">{m.direct_count || 0}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-0.5 text-[11px]">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-12 text-[10px] font-bold text-slate-400">Invest:</span>
-                        <span className="font-mono text-blue-600 dark:text-blue-400 font-semibold">${Number(m.total_invested || 0).toFixed(2)}</span>
+              ) : paginatedMembers.map((m) => {
+                const isActive = !m.is_blocked && (m.status === "ACTIVE" || String(m.status).toLowerCase() === "active");
+                const isBlocked = !!m.is_blocked || String(m.status).toLowerCase() === "blocked";
+                return (
+                  <tr key={m.id} className="border-t border-slate-100 dark:border-slate-800">
+                    <td className="px-4 py-3">#{m.id}</td>
+                    <td className="px-4 py-3 max-w-[220px] truncate" title={m.wallet_address}>{m.wallet_address}</td>
+                    <td className="px-4 py-3">{m.referral_code || "-"}</td>
+                    <td className="px-4 py-3">{m.sponsor_id || "-"}</td>
+                    {/* <td className="px-4 py-3">{m.rank_name || "-"}</td> */}
+                    <td className="px-4 py-3">{m.direct_count || 0}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-0.5 text-[11px]">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-12 text-[10px] font-bold text-slate-400">Invest:</span>
+                          <span className="font-mono text-blue-600 dark:text-blue-400 font-semibold">${Number(m.total_invested || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-12 text-[10px] font-bold text-slate-400">Earned:</span>
+                          <span className="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">${Number(m.cumulative_earning || 0).toFixed(2)}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-12 text-[10px] font-bold text-slate-400">Earned:</span>
-                        <span className="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">${Number(m.cumulative_earning || 0).toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${m.is_blocked ? "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-900/30" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/30"}`}>
-                      {m.is_blocked ? "Blocked" : "Active"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        isBlocked
+                          ? "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-900/30"
+                          : isActive
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/30"
+                          : "bg-slate-100 text-slate-700 dark:bg-slate-900/60 dark:text-slate-300 border border-slate-200 dark:border-slate-800"
+                      }`}>
+                        {isBlocked ? "Blocked" : isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -1549,16 +1549,46 @@ export default function CompanyAdminDashboard() {
               <h2 className="text-sm font-semibold mb-4">User Balance Breakdown</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {[
-                  { label: "Main Balance", val: members.reduce((s, m) => s + Number(m.main_balance || 0), 0), color: C.emerald },
-                  { label: "Earning Balance", val: members.reduce((s, m) => s + Number(m.earning_balance || 0), 0), color: C.sky },
-                  { label: "Reward Balance", val: members.reduce((s, m) => s + Number(m.reward_balance || 0), 0), color: C.violet },
-                  { label: "Total Balances", val: tvl, color: C.amber },
-                  { label: "Direct Refs Total", val: members.reduce((s, m) => s + Number(m.direct_count || 0), 0), color: C.teal },
-                  { label: "Avg Balance/User", val: totalMembers > 0 ? tvl / totalMembers : 0, color: C.orange },
-                ].map(item => (
+                  {
+                    label: "Total Investment",
+                    val: Number(commission?.totalInvestment || 0),
+                    color: C.emerald,
+                    fmt: (v: number) => `$${fmt(v)}`,
+                  },
+                  {
+                    label: "Earning Balance",
+                    val: commission?.memberStats ? Number(commission.memberStats.totalEarningBalance || 0) : members.reduce((s, m) => s + Number(m.earning_balance || 0), 0),
+                    color: C.sky,
+                    fmt: (v: number) => `$${fmt(v)}`,
+                  },
+                  {
+                    label: "Reward Balance",
+                    val: commission?.memberStats ? Number(commission.memberStats.totalRewardBalance || 0) : members.reduce((s, m) => s + Number(m.reward_balance || 0), 0),
+                    color: C.violet,
+                    fmt: (v: number) => `$${fmt(v)}`,
+                  },
+                  {
+                    label: "Total Balances",
+                    val: Number(tvl || 0),
+                    color: C.amber,
+                    fmt: (v: number) => `$${fmt(v)}`,
+                  },
+                  {
+                    label: "Direct Refs Total",
+                    val: commission?.memberStats ? Number(commission.memberStats.totalDirects || 0) : members.reduce((s, m) => s + Number(m.direct_count || 0), 0),
+                    color: C.teal,
+                    fmt: (v: number) => `${Math.round(Number(v || 0)).toLocaleString()}`,
+                  },
+                  {
+                    label: "Avg Balance/User",
+                    val: totalMembers > 0 ? Number(tvl || 0) / totalMembers : 0,
+                    color: C.orange,
+                    fmt: (v: number) => `$${fmt(v)}`,
+                  },
+                ].map((item) => (
                   <div key={item.label} className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
                     <p className="text-xs text-slate-400">{item.label}</p>
-                    <p className="text-lg font-bold mt-1" style={{ color: item.color }}>${fmt(item.val)}</p>
+                    <p className="text-lg font-bold mt-1" style={{ color: item.color }}>{item.fmt(item.val)}</p>
                   </div>
                 ))}
               </div>

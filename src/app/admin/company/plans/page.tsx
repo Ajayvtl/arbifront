@@ -357,7 +357,7 @@ export default function CompanyPlansPage() {
               <th className="text-left px-4 py-3">Name</th>
               <th className="text-left px-4 py-3">Min</th>
               <th className="text-left px-4 py-3">Max</th>
-              <th className="text-left px-4 py-3">ROI %</th>
+              {!isReadOnlyAdmin && <th className="text-left px-4 py-3">ROI %</th>}
               <th className="text-left px-4 py-3">Daily Income %</th>
               <th className="text-left px-4 py-3">Duration</th>
               <th className="text-left px-4 py-3">Cap Multiplier</th>
@@ -368,16 +368,16 @@ export default function CompanyPlansPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-6 text-slate-500" colSpan={isReadOnlyAdmin ? 10 : 11}>Loading plans...</td></tr>
+              <tr><td className="px-4 py-6 text-slate-500" colSpan={isReadOnlyAdmin ? 9 : 11}>Loading plans...</td></tr>
             ) : plans.length === 0 ? (
-              <tr><td className="px-4 py-6 text-slate-500" colSpan={isReadOnlyAdmin ? 10 : 11}>No plans available.</td></tr>
+              <tr><td className="px-4 py-6 text-slate-500" colSpan={isReadOnlyAdmin ? 9 : 11}>No plans available.</td></tr>
             ) : plans.map((plan) => (
               <tr key={plan.id} className="border-t border-slate-100 dark:border-slate-800">
                 <td className="px-4 py-3">#{plan.id}</td>
                 <td className="px-4 py-3">{plan.name}</td>
                 <td className="px-4 py-3">{Number(plan.min_amount || 0).toFixed(2)}</td>
                 <td className="px-4 py-3">{Number(plan.max_amount || 0).toFixed(2)}</td>
-                <td className="px-4 py-3">{Number(plan.roi_percent || 0).toFixed(2)}%</td>
+                {!isReadOnlyAdmin && <td className="px-4 py-3">{Number(plan.roi_percent || 0).toFixed(2)}%</td>}
                 <td className="px-4 py-3">{Number((plan.daily_income_percent ?? plan.roi_percent) || 0).toFixed(2)}%</td>
                 <td className="px-4 py-3">{plan.duration_days} days</td>
                 <td className="px-4 py-3">{Number(plan.max_return_multiplier || 2).toFixed(2)}x</td>

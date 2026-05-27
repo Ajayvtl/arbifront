@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Loader2, ArrowLeftRight, RefreshCw, ShieldCheck, Search } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
+import { getCompanyRoleScope } from "@/lib/companyRoleScope";
 
 interface ExchangeLogItem {
   status: "SUCCESS" | "FAILED";
@@ -58,6 +60,10 @@ function formatDate(value: string | null) {
 }
 
 export default function ExchangeLogsPage() {
+  const { user } = useAuth();
+  const companyRoleScope = getCompanyRoleScope(user);
+  const canRetry = companyRoleScope === "all" || companyRoleScope === "developer";
+
   const [rows, setRows] = useState<ExchangeLogItem[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -109,6 +115,7 @@ export default function ExchangeLogsPage() {
   }, []);
 
   const handleRetry = async (log: ExchangeLogItem) => {
+    if (!canRetry) return;
     if (retryingId !== null) return;
     setRetryingId(log.log_id);
     try {
@@ -429,7 +436,7 @@ export default function ExchangeLogsPage() {
                       </td>
                       <td className="py-3 pr-3 text-xs text-slate-400">{formatDate(row.created_at)}</td>
                       <td className="py-3 pr-3 text-right">
-                        {row.status === "FAILED" && (
+                        {canRetry && row.status === "FAILED" && (
                           <button
                             onClick={() => void handleRetry(row)}
                             disabled={retryingId !== null}

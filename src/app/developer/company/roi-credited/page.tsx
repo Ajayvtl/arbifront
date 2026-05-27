@@ -49,11 +49,22 @@ export default function RoiCreditsPage() {
   const [searchWallet, setSearchWallet] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [todayRoiPayout, setTodayRoiPayout] = useState(0);
   const [summary, setSummary] = useState({
     totalDailyRoi: 0,
     dailyRoiPayout: 0,
     yesterdayRoiPayout: 0,
   });
+
+  const loadTodayPayout = async () => {
+    try {
+      const res = await api.get("/mlm/commissions/summary", { params: { days: 30 } });
+      const v = Number(res.data?.data?.totalActualRoiPayoutToday || 0);
+      setTodayRoiPayout(Number.isFinite(v) ? v : 0);
+    } catch {
+      setTodayRoiPayout(0);
+    }
+  };
 
   const loadRoiCredits = async () => {
     setLoading(true);
@@ -82,6 +93,10 @@ export default function RoiCreditsPage() {
   };
 
   useEffect(() => {
+    void loadTodayPayout();
+  }, []);
+
+  useEffect(() => {
     void loadRoiCredits();
   }, [page, typeFilter]);
 
@@ -107,15 +122,25 @@ export default function RoiCreditsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 flex flex-col justify-between">
           <div>
-            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Total ROI Credited</p>
+            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Total ROI Credited (All-time)</p>
             <p className="text-2xl font-bold mt-2 text-blue-600 dark:text-blue-400">
               ${Number(summary.totalDailyRoi).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
             </p>
           </div>
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">All-time ROI & booster credited to members</p>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">Sum of ROI + booster credit transactions</p>
+        </div>
+
+        <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 flex flex-col justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Today's ROI Payout</p>
+            <p className="text-2xl font-bold mt-2 text-emerald-600 dark:text-emerald-400">
+              ${Number(todayRoiPayout).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+            </p>
+          </div>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">Processed today</p>
         </div>
 
         <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 flex flex-col justify-between">

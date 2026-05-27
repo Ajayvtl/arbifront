@@ -40,6 +40,10 @@ function formatDate(value: string | null) {
   }
 }
 
+function isSameLocalDate(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
 export default function CompanyPaymentLogsPage() {
   const [rows, setRows] = useState<CompanyOrderItem[]>([]);
   const [page, setPage] = useState(1);
@@ -75,8 +79,8 @@ export default function CompanyPaymentLogsPage() {
     <div className="p-8 space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Company Payment Logs</h1>
-          <p className="text-gray-500">Responsive transaction history for end-user package payments with pagination.</p>
+          <h1 className="text-2xl font-bold">Deposit Logs</h1>
+          <p className="text-gray-500">Member package purchase and deposit transaction history.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -119,7 +123,19 @@ export default function CompanyPaymentLogsPage() {
         ) : (
           <>
             <div className="space-y-3 lg:hidden">
-              {rows.filter(r => !search || `#${r.id} #${r.user_id} ${r.plan_name || ''} ${r.tx_hash || ''} ${r.receiver_address || ''} ${r.status}`.toLowerCase().includes(search.toLowerCase())).map((row) => (
+              {rows
+                .filter((r) => {
+                  const txHashLabel = (r.tx_hash || "-").trim();
+                  if (r.status === "INITIATED" && txHashLabel === "-") {
+                    const created = new Date(r.created_at);
+                    if (Number.isFinite(created.getTime()) && !isSameLocalDate(created, new Date())) {
+                      return false;
+                    }
+                  }
+                  return true;
+                })
+                .filter(r => !search || `#${r.id} #${r.user_id} ${r.plan_name || ''} ${r.tx_hash || ''} ${r.receiver_address || ''} ${r.status}`.toLowerCase().includes(search.toLowerCase()))
+                .map((row) => (
                 <div key={row.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -162,7 +178,19 @@ export default function CompanyPaymentLogsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.filter(r => !search || `#${r.id} #${r.user_id} ${r.plan_name || ''} ${r.tx_hash || ''} ${r.receiver_address || ''} ${r.status}`.toLowerCase().includes(search.toLowerCase())).map((row) => (
+                  {rows
+                    .filter((r) => {
+                      const txHashLabel = (r.tx_hash || "-").trim();
+                      if (r.status === "INITIATED" && txHashLabel === "-") {
+                        const created = new Date(r.created_at);
+                        if (Number.isFinite(created.getTime()) && !isSameLocalDate(created, new Date())) {
+                          return false;
+                        }
+                      }
+                      return true;
+                    })
+                    .filter(r => !search || `#${r.id} #${r.user_id} ${r.plan_name || ''} ${r.tx_hash || ''} ${r.receiver_address || ''} ${r.status}`.toLowerCase().includes(search.toLowerCase()))
+                    .map((row) => (
                     <tr key={row.id} className="border-b border-slate-100 dark:border-slate-700">
                       <td className="py-3 pr-3">#{row.id}</td>
                       <td className="py-3 pr-3">#{row.user_id}</td>
