@@ -19,6 +19,7 @@ interface Member {
   sponsor_id: number | null; status: string; is_blocked: number;
   created_at: string; main_balance: number | null; earning_balance: number | null;
   reward_balance: number | null; rank_name: string | null; direct_count: number;
+  total_invested?: number | null;
 }
 interface CommissionType { type: string; total_count: number; total_amount: number; }
 interface TopEarner { user_id: number; wallet_address: string; total_amount: number; }
@@ -68,11 +69,12 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 // ─── Utility ────────────────────────────────────────────────────────────────
-const fmt = (n: number, d = 2) => {
-  if (!Number.isFinite(n) || n === 0) return "0";
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(d)}M`;
-  if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(d)}K`;
-  return n.toFixed(d);
+const fmt = (n: any, d = 2) => {
+  const num = Number(n);
+  if (!Number.isFinite(num) || num === 0) return "0";
+  if (Math.abs(num) >= 1_000_000) return `${(num / 1_000_000).toFixed(d)}M`;
+  if (Math.abs(num) >= 1_000) return `${(num / 1_000).toFixed(d)}K`;
+  return num.toFixed(d);
 };
 const shortWallet = (a: string | null) => !a ? "—" : a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
 const fmtDate = (v: string) => { try { return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(v)); } catch { return v; } };
@@ -220,12 +222,12 @@ function SessionBarChart({ series, labels, timestamps, height = 160 }: {
   const paddingRight = 12;
   const chartWidth = width - paddingLeft - paddingRight;
   const barGroupWidth = chartWidth / n;
-  
+
   const allVals = series.flatMap(s => s.values);
   const minV = 0;
   const maxV = Math.max(...allVals, 1);
   const range = maxV - minV;
-  
+
   const yScale = (v: number) => height - 25 - ((v - minV) / range) * (height - 45);
   const xScale = (i: number) => paddingLeft + i * barGroupWidth;
 
@@ -290,7 +292,7 @@ function SessionBarChart({ series, labels, timestamps, height = 160 }: {
             const groupWidth = singleBarWidth * numSeries;
             const groupOffset = (barGroupWidth - groupWidth) / 2;
             const isHovered = hoveredIndex === i;
-            
+
             return (
               <g key={i}>
                 {series.map((s, sIdx) => {
@@ -298,7 +300,7 @@ function SessionBarChart({ series, labels, timestamps, height = 160 }: {
                   const barHeight = ((val - minV) / range) * (height - 45);
                   const x = groupX + groupOffset + sIdx * singleBarWidth;
                   const y = height - 25 - barHeight;
-                  
+
                   return (
                     <rect
                       key={sIdx}
@@ -411,8 +413,8 @@ export default function CompanyAdminDashboard() {
   const companyName = siteSettings.site_name || siteSettings.brand_name || "Admin Dashboard";
 
   const [members, setMembers] = useState<Member[]>([]);
-  const [commission, setCommission] = useState<{ 
-    totals: CommissionType[]; 
+  const [commission, setCommission] = useState<{
+    totals: CommissionType[];
     topEarners: TopEarner[];
     totalInvestment: number;
     totalInvestmentPeriod: number;
@@ -479,7 +481,7 @@ export default function CompanyAdminDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Active tab
   const [tab, setTab] = useState<"overview" | "commissions" | "payouts" | "plans" | "members" | "sys_wallets">("overview");
-  
+
   // Clear members state
   const [showClearModal, setShowClearModal] = useState(false);
   const [clearConfirmCode, setClearConfirmCode] = useState("");
@@ -496,12 +498,12 @@ export default function CompanyAdminDashboard() {
         api.get("/mlm/plans", { params: { limit: 200 } }),
       ]);
       const m = (mRes.data?.data || []) as Member[];
-      const c = (cRes.data?.data || null) as { 
-        totals: CommissionType[]; 
-        topEarners: TopEarner[]; 
-        totalInvestment: number; 
-        totalInvestmentPeriod: number; 
-        totalDailyRoiPayout: number; 
+      const c = (cRes.data?.data || null) as {
+        totals: CommissionType[];
+        topEarners: TopEarner[];
+        totalInvestment: number;
+        totalInvestmentPeriod: number;
+        totalDailyRoiPayout: number;
         totalActualRoiPayoutToday: number;
         memberStats?: {
           totalMembers: number;
@@ -534,13 +536,13 @@ export default function CompanyAdminDashboard() {
       setMembers(m); setCommission(c); setPayouts(p); setPlans(pl);
       setLastUpdated(new Date());
       countRef.current = REFRESH_SECS; setCountdown(REFRESH_SECS);
-      
+
       const totalCount = c?.memberStats ? c.memberStats.totalMembers : m.length;
       const active = c?.memberStats ? c.memberStats.activeMembers : m.filter(mb => !mb.is_blocked && (mb.status === "ACTIVE" || mb.status === "active")).length;
       const commTotal = (c?.totals || []).reduce((s, t) => s + Number(t.total_amount || 0), 0);
       const pending = c?.payoutStats ? c.payoutStats.pendingCount : p.filter(pay => pay.status === "PENDING").length;
       const tvlVal = c?.memberStats ? c.memberStats.tvl : m.reduce((s, mb) => s + Number(mb.main_balance || 0) + Number(mb.earning_balance || 0), 0);
-      
+
       // Seed history from server if available, otherwise fallback to real-time snapshot accumulation
       if (c?.history && Array.isArray(c.history) && c.history.length > 0) {
         historyRef.current = c.history;
@@ -619,7 +621,7 @@ export default function CompanyAdminDashboard() {
       toast.error("Please type CLEAR to confirm");
       return;
     }
-    
+
     setIsClearing(true);
     try {
       await api.post("/admin/data/clear-members");
@@ -665,7 +667,7 @@ export default function CompanyAdminDashboard() {
     const pending = payouts.filter(p => p.status === "PENDING");
     const approved = payouts.filter(p => p.status === "APPROVED" || p.status === "SUCCESS");
     const rejected = payouts.filter(p => p.status === "REJECTED");
-    
+
     if (commission?.payoutStats) {
       return {
         pending, approved, rejected,
@@ -682,7 +684,7 @@ export default function CompanyAdminDashboard() {
         totalNetServer: commission.payoutStats.totalNet,
       };
     }
-    
+
     return {
       pending, approved, rejected,
       pendingNet: pending.reduce((s, p) => s + Number(p.net_amount || 0), 0),
@@ -894,9 +896,8 @@ export default function CompanyAdminDashboard() {
         </header>
 
         {/* ── KPI Row ─────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
           <KpiCard label="Total Investment" value={`$${fmt(totalInvestment)}`} sub={`$${fmt(totalInvestmentPeriod)} last ${days}d`} icon={BarChart3} color={C.emerald} history={[]} />
-          <KpiCard label="Projected Daily ROI" value={`$${fmt(totalDailyRoiPayout)}`} sub="Estimated target" icon={Zap} color={C.amber} history={[]} />
           <KpiCard label="Today's ROI Payout" value={`$${fmt(totalActualRoiPayoutToday)}`} sub="Processed today" icon={Activity} color={C.emerald} history={[]} />
           <KpiCard label="User Base" value={`${activeMembers} / ${totalMembers}`} sub={`${pct(activeMembers, totalMembers)}% active`} icon={Users} color={C.sky} history={hMembers} />
           <KpiCard label="Pending Payouts" value={(payoutByStatus.pendingCountServer ?? payoutByStatus.pending.length).toString()} sub={`$${fmt(payoutByStatus.pendingNet)} net`} icon={Clock} color={C.orange} history={hPending} />
@@ -1450,10 +1451,9 @@ export default function CompanyAdminDashboard() {
         ══════════════════════════════════════════════════════════════ */}
         {tab === "plans" && (
           <div className="space-y-5">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[
                 { label: "Total Plans", val: plans.length.toString(), color: C.sky },
-                { label: "Avg ROI %", val: plans.length ? `${(plans.reduce((s, p) => s + Number(p.roi_percent || 0), 0) / plans.length).toFixed(2)}%` : "0%", color: C.amber },
                 { label: "Min Entry", val: plans.length ? `$${fmt(Math.min(...plans.map(p => Number(p.min_amount))))}` : "—", color: C.emerald },
                 { label: "Max Cap", val: plans.length ? `${Math.max(...plans.map(p => Number(p.max_return_multiplier)))}x` : "—", color: C.violet },
               ].map(item => (
@@ -1474,8 +1474,13 @@ export default function CompanyAdminDashboard() {
                   {plans.map((plan, i) => {
                     const planColors = [C.emerald, C.amber, C.sky, C.violet, C.orange, C.teal, C.pink, C.rose];
                     const col = planColors[i % planColors.length];
-                    const roiMax = Math.max(...plans.map(p => Number(p.roi_percent)));
-                    const roiW = roiMax > 0 ? (Number(plan.roi_percent) / roiMax) * 100 : 0;
+                    const count = members.filter(m => {
+                      const inv = Number(m.total_invested || 0);
+                      const min = Number(plan.min_amount);
+                      const max = Number(plan.max_amount);
+                      return inv >= min && (max === 0 || inv <= max);
+                    }).length;
+                    const pctOfTotal = members.length > 0 ? (count / members.length) * 100 : 0;
                     return (
                       <div key={plan.id} className="rounded-xl border bg-slate-900 p-4" style={{ borderColor: `${col}25` }}>
                         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -1491,7 +1496,7 @@ export default function CompanyAdminDashboard() {
                         <div className="grid grid-cols-3 gap-3 mb-3 text-center text-xs">
                           <div>
                             <p className="text-slate-500">Entry Range</p>
-                            <p className="font-bold text-white mt-0.5">${fmt(plan.min_amount)}–{plan.max_amount > 0 ? `$${fmt(plan.max_amount)}` : "∞"}</p>
+                            <p className="font-bold text-white mt-0.5">${fmt(Number(plan.min_amount))}–{Number(plan.max_amount) > 0 ? `$${fmt(Number(plan.max_amount))}` : "∞"}</p>
                           </div>
                           <div>
                             <p className="text-slate-500">Daily ROI</p>
@@ -1499,16 +1504,16 @@ export default function CompanyAdminDashboard() {
                           </div>
                           <div>
                             <p className="text-slate-500">Total ROI</p>
-                            <p className="font-bold mt-0.5" style={{ color: col }}>{Number(plan.roi_percent).toFixed(2)}%</p>
+                            <p className="font-bold mt-0.5" style={{ color: col }}>{Number(plan.max_return_multiplier) || 2}X</p>
                           </div>
                         </div>
-                        {/* ROI bar */}
+                        {/* Member distribution bar */}
                         <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                          <span className="w-12 shrink-0">ROI</span>
+                          <span className="w-16 shrink-0">Members</span>
                           <div className="flex-1 h-2 rounded-full bg-slate-800">
-                            <div className="h-full rounded-full" style={{ width: `${roiW}%`, background: `linear-gradient(90deg, ${col}88, ${col})` }} />
+                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pctOfTotal}%`, background: `linear-gradient(90deg, ${col}88, ${col})` }} />
                           </div>
-                          <span className="w-10 text-right" style={{ color: col }}>{Number(plan.roi_percent).toFixed(1)}%</span>
+                          <span className="w-20 text-right font-semibold" style={{ color: col }}>{count} ({pctOfTotal.toFixed(1)}%)</span>
                         </div>
                       </div>
                     );
@@ -1634,9 +1639,25 @@ export default function CompanyAdminDashboard() {
               </div>
             )}
 
+            {/* Refresh Wallets Button */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-emerald-400" />
+                System Wallet Balances
+              </h2>
+              <button
+                type="button"
+                onClick={() => void reloadExchangeSummary()}
+                className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-emerald-600 hover:text-white transition-all flex items-center gap-1.5 disabled:opacity-50"
+                disabled={exchangeLoading}
+              >
+                <RefreshCw className={`h-3 w-3 ${exchangeLoading ? "animate-spin" : ""}`} /> Refresh Wallets
+              </button>
+            </div>
+
             {/* Wallets Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              
+
               {/* 1. Reserve Wallet Card */}
               <div className="rounded-2xl border border-slate-800 bg-[#0d1626] p-5 space-y-4">
                 <div className="flex items-center justify-between">
@@ -1651,7 +1672,7 @@ export default function CompanyAdminDashboard() {
                     Reserve
                   </span>
                 </div>
-                
+
                 <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
                   <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Wallet Address</div>
                   <div className="mt-1 font-mono text-[11px] text-slate-200 break-all select-all">
@@ -1661,7 +1682,7 @@ export default function CompanyAdminDashboard() {
 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
-                    <div className="text-[9px] font-bold text-slate-500">{exchangeSummary?.nativeSymbol || "BNB"}</div>
+                    <div className="text-[9px] font-bold text-slate-500">{"BNB"}</div>
                     <div className="mt-1 font-mono text-xs font-bold text-slate-200">{exchangeSummary?.balances?.bnb || "0.0000"}</div>
                   </div>
                   <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
@@ -1691,7 +1712,7 @@ export default function CompanyAdminDashboard() {
                     Deposit
                   </span>
                 </div>
-                
+
                 <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
                   <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Wallet Address</div>
                   <div className="mt-1 font-mono text-[11px] text-slate-200 break-all select-all">
@@ -1731,7 +1752,7 @@ export default function CompanyAdminDashboard() {
                     Withdrawal
                   </span>
                 </div>
-                
+
                 <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
                   <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Wallet Address</div>
                   <div className="mt-1 font-mono text-[11px] text-slate-200 break-all select-all">
@@ -1772,7 +1793,7 @@ export default function CompanyAdminDashboard() {
                       Route {idx + 1}
                     </span>
                   </div>
-                  
+
                   <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
                     <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Wallet Address</div>
                     <div className="mt-1 font-mono text-[11px] text-slate-200 break-all select-all">
@@ -1860,10 +1881,10 @@ export default function CompanyAdminDashboard() {
             </div>
             <h3 className="text-xl font-bold text-white mb-2">Clear All Members?</h3>
             <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-              This will permanently delete ALL end-user accounts, MLM tree positions, wallets, and financial records for your company. 
+              This will permanently delete ALL end-user accounts, MLM tree positions, wallets, and financial records for your company.
               <span className="text-rose-400 font-semibold block mt-2 underline italic">Admins and system settings will remain intact.</span>
             </p>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 block">
@@ -1877,7 +1898,7 @@ export default function CompanyAdminDashboard() {
                   className="w-full rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-3 text-white placeholder:text-slate-600 focus:border-rose-500/50 focus:outline-none transition-all"
                 />
               </div>
-              
+
               <div className="flex gap-3">
                 <button
                   type="button"

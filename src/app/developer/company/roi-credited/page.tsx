@@ -107,7 +107,7 @@ export default function RoiCreditsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 flex flex-col justify-between">
           <div>
             <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Total ROI Credited</p>
@@ -116,16 +116,6 @@ export default function RoiCreditsPage() {
             </p>
           </div>
           <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">All-time ROI & booster credited to members</p>
-        </div>
-
-        <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 flex flex-col justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Projected Daily ROI</p>
-            <p className="text-2xl font-bold mt-2 text-emerald-600 dark:text-emerald-400">
-              ${Number(summary.dailyRoiPayout).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
-            </p>
-          </div>
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">Expected target from active packages</p>
         </div>
 
         <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 flex flex-col justify-between">
