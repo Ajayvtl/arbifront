@@ -17,7 +17,7 @@ export default function Sidebar() {
     const { logout, user, availableHotels } = useAuth();
     const { sidebarCollapsed } = useTheme();
     const { settings, t } = useSettings();
-    const enableRoleScopeSplit = process.env.NEXT_PUBLIC_ENABLE_ROLE_SCOPE_SPLIT === "true";
+    const enableRoleScopeSplit = process.env.NEXT_PUBLIC_ENABLE_ROLE_SCOPE_SPLIT !== "false";
     const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
     const [mounted, setMounted] = useState(false);
 
@@ -136,7 +136,7 @@ export default function Sidebar() {
         const isDeveloperLikeRole = companyRoleScope === "developer";
         const isAdminLikeRole = companyRoleScope === "admin";
         const companyMenuScope: "admin" | "developer" | "all" = isSuperAdmin
-            ? "all"
+            ? "admin"
             : (isDeveloperLikeRole || (isDeveloperWorkspacePath && !isAdminLikeRole))
                 ? "developer"
                 : "admin";
