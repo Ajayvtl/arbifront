@@ -1580,7 +1580,7 @@ export default function CompanyAdminDashboard() {
                       <th className="py-2 pr-3">Wallet</th>
                       <th className="py-2 pr-3">Status</th>
                       <th className="py-2 pr-3">Directs</th>
-                      <th className="py-2 pr-3">Main Bal</th>
+                      <th className="py-2 pr-3">Total Invested</th>
                       <th className="py-2">Joined</th>
                     </tr>
                   </thead>
@@ -1597,7 +1597,7 @@ export default function CompanyAdminDashboard() {
                             </span>
                           </td>
                           <td className="py-2.5 pr-3 text-slate-300">{m.direct_count}</td>
-                          <td className="py-2.5 pr-3 text-emerald-400 font-semibold">${fmt(Number(m.main_balance || 0))}</td>
+                          <td className="py-2.5 pr-3 text-emerald-400 font-semibold">${fmt(Number(m.total_invested || 0))}</td>
                           <td className="py-2.5 text-slate-600">{fmtDate(m.created_at)}</td>
                         </tr>
                       );
