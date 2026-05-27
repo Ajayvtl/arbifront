@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, ArrowLeftRight, RefreshCw } from "lucide-react";
+import { Loader2, ArrowLeftRight, RefreshCw, ShieldCheck } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
 
@@ -30,6 +30,24 @@ interface PaginatedLogs {
   };
 }
 
+interface ExchangeActiveSummary {
+  profileId: number;
+  profileName: string;
+  reserveWallet: string;
+  withdrawWallet?: string;
+  depositWallet?: string;
+  assetMode: "TOKEN" | "COIN";
+  nativeSymbol: string;
+  usdtSymbol: string;
+  customSymbol: string;
+  balances: { bnb: string; usdt: string; token: string };
+  withdrawBalances?: { bnb: string; usdt: string; token: string } | null;
+  depositBalances?: { bnb: string; usdt: string; token: string } | null;
+  routingWallets?: { key: string; address: string; balances: { bnb: string; usdt: string; token: string } | null }[];
+  liveRate: { source: string; symbol: string; rateUsd: number };
+  chain: { chainId: number | null; explorerUrl: string } | null;
+}
+
 function formatDate(value: string | null) {
   if (!value) return "-";
   try {
@@ -47,6 +65,9 @@ export default function ExchangeLogsPage() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [retryingId, setRetryingId] = useState<number | null>(null);
+
+  const [exchangeSummary, setExchangeSummary] = useState<ExchangeActiveSummary | null>(null);
+  const [exchangeLoading, setExchangeLoading] = useState(false);
 
   const loadLogs = async () => {
     setLoading(true);
@@ -66,9 +87,25 @@ export default function ExchangeLogsPage() {
     }
   };
 
+  const reloadExchangeSummary = async () => {
+    setExchangeLoading(true);
+    try {
+      const exchRes = await api.get("/admin/exchange-config/active-summary");
+      setExchangeSummary((exchRes.data?.data || null) as ExchangeActiveSummary | null);
+    } catch {
+      setExchangeSummary(null);
+    } finally {
+      setExchangeLoading(false);
+    }
+  };
+
   useEffect(() => {
     void loadLogs();
   }, [page, status]);
+
+  useEffect(() => {
+    void reloadExchangeSummary();
+  }, []);
 
   const handleRetry = async (log: ExchangeLogItem) => {
     if (retryingId !== null) return;
@@ -89,6 +126,41 @@ export default function ExchangeLogsPage() {
     }
   };
 
+  const allWallets = exchangeSummary ? [
+    {
+      name: "Exchange Reserve Wallet",
+      desc: "Main platform reserve wallet",
+      badge: "Reserve",
+      badgeBg: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+      address: exchangeSummary.reserveWallet,
+      balances: exchangeSummary.balances,
+    },
+    {
+      name: "Deposit Receiver Wallet",
+      desc: "Receives member purchase transactions",
+      badge: "Deposit",
+      badgeBg: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+      address: exchangeSummary.depositWallet,
+      balances: exchangeSummary.depositBalances,
+    },
+    {
+      name: "Withdrawal Wallet",
+      desc: "Processes automated withdrawal requests",
+      badge: "Withdrawal",
+      badgeBg: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+      address: exchangeSummary.withdrawWallet,
+      balances: exchangeSummary.withdrawBalances,
+    },
+    ...(exchangeSummary.routingWallets || []).map((w, idx) => ({
+      name: w.key || `Route Wallet ${idx + 1}`,
+      desc: "Sequential routing channel",
+      badge: `Route ${idx + 1}`,
+      badgeBg: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+      address: w.address,
+      balances: w.balances,
+    }))
+  ] : [];
+
   return (
     <div className="p-8 space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -100,6 +172,18 @@ export default function ExchangeLogsPage() {
           <p className="text-gray-500 text-sm">View and audit automated sequential exchange router sweeps for subscriptions.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              void loadLogs();
+              void reloadExchangeSummary();
+              toast.success("Logs & wallets refreshed");
+            }}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 hover:text-emerald-500 hover:border-emerald-500 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+            disabled={loading || exchangeLoading}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${(loading || exchangeLoading) ? "animate-spin" : ""}`} /> Refresh
+          </button>
           <select
             value={status}
             onChange={(e) => {
@@ -116,6 +200,104 @@ export default function ExchangeLogsPage() {
             Total: <span className="font-semibold">{total}</span>
           </div>
         </div>
+      </div>
+
+      {/* System Wallet Hub */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-emerald-500" />
+            <div>
+              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">System Wallet Hub</h2>
+              <p className="text-[11px] text-slate-500">Live balances + live rates from configured exchange settings</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              void reloadExchangeSummary();
+              toast.success("Wallet balances updated");
+            }}
+            className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-emerald-500 hover:border-emerald-500 transition-all flex items-center gap-1.5 disabled:opacity-50"
+            disabled={exchangeLoading}
+          >
+            <RefreshCw className={`h-3 w-3 ${exchangeLoading ? "animate-spin" : ""}`} /> Refresh Hub
+          </button>
+        </div>
+
+        {!exchangeSummary ? (
+          <div className="text-xs text-slate-500 py-4 text-center">
+            {exchangeLoading ? "Loading wallet balances..." : "No active exchange profile (or insufficient permissions)."}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Grid of wallets */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {allWallets.map((wallet) => (
+                <div key={wallet.name} className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 flex flex-col justify-between gap-4 dark:border-slate-700 dark:bg-slate-900/40">
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{wallet.name}</h3>
+                        <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">{wallet.desc}</p>
+                      </div>
+                      <span className={`text-[9px] uppercase font-extrabold px-1.5 py-0.5 rounded border shrink-0 ${wallet.badgeBg}`}>
+                        {wallet.badge}
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 p-2.5">
+                      <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Address</div>
+                      <div className="mt-1 font-mono text-[10px] text-slate-600 dark:text-slate-300 break-all select-all leading-tight">
+                        {wallet.address || "Not Configured"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 p-2 text-center">
+                      <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500">{"BNB"}</div>
+                      <div className="mt-1 font-mono text-[10px] font-bold text-slate-700 dark:text-slate-200 truncate">{wallet.balances?.bnb || "0.0000"}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 p-2 text-center">
+                      <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500">USDT</div>
+                      <div className="mt-1 font-mono text-[10px] font-bold text-slate-700 dark:text-slate-200 truncate">{wallet.balances?.usdt || "0.00"}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 p-2 text-center">
+                      <div className="text-[9px] font-bold text-emerald-500">{exchangeSummary.customSymbol || "TOKEN"}</div>
+                      <div className="mt-1 font-mono text-[10px] font-bold text-emerald-500 truncate">
+                        {exchangeSummary.assetMode === "TOKEN" ? wallet.balances?.token || "0.00" : wallet.balances?.bnb || "0.0000"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Live Rate and Explorer metadata */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-wrap items-center justify-between gap-3 dark:border-slate-700 dark:bg-slate-900">
+              <div className="text-xs text-slate-600 dark:text-slate-300">
+                Live Rate:{" "}
+                <span className="font-mono font-extrabold text-emerald-600 dark:text-emerald-400">
+                  {Number(exchangeSummary.liveRate.rateUsd || 0).toFixed(6)} USDT
+                </span>
+                <span className="text-slate-400 dark:text-slate-500">
+                  {" "}· Source: {exchangeSummary.liveRate.source} · Symbol: {exchangeSummary.liveRate.symbol}
+                </span>
+              </div>
+              {exchangeSummary.chain?.explorerUrl && (
+                <a
+                  href={exchangeSummary.chain.explorerUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-emerald-500 transition-colors"
+                >
+                  Block Explorer ↗
+                </a>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
