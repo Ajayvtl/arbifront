@@ -19,6 +19,11 @@ interface RoiCreditItem {
 
 interface PaginatedRoiCredits {
   items: RoiCreditItem[];
+  summary?: {
+    totalDailyRoi: number;
+    dailyRoiPayout: number;
+    yesterdayRoiPayout: number;
+  };
   pagination: {
     page: number;
     limit: number;
@@ -44,6 +49,11 @@ export default function RoiCreditsPage() {
   const [searchWallet, setSearchWallet] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState({
+    totalDailyRoi: 0,
+    dailyRoiPayout: 0,
+    yesterdayRoiPayout: 0,
+  });
 
   const loadRoiCredits = async () => {
     setLoading(true);
@@ -60,6 +70,9 @@ export default function RoiCreditsPage() {
       setRows(payload.items || []);
       setTotalPages(payload.pagination?.totalPages || 1);
       setTotal(payload.pagination?.total || 0);
+      if (payload.summary) {
+        setSummary(payload.summary);
+      }
     } catch (error: unknown) {
       const message = (error as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to load ROI credit logs";
       toast.error(message);
@@ -84,12 +97,45 @@ export default function RoiCreditsPage() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Calculator className="h-6 w-6 text-primary" />
-            ROI Payout Logs
+            ROI Payout Logs (3X Amount)
           </h1>
           <p className="text-gray-500 text-sm">Audit daily ROI credits and ROI boosters distributed to members.</p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 self-start md:self-auto">
           Total: <span className="font-semibold">{total}</span>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 flex flex-col justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Total ROI Credited</p>
+            <p className="text-2xl font-bold mt-2 text-blue-600 dark:text-blue-400">
+              ${Number(summary.totalDailyRoi).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+            </p>
+          </div>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">All-time ROI & booster credited to members</p>
+        </div>
+
+        <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 flex flex-col justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Projected Daily ROI</p>
+            <p className="text-2xl font-bold mt-2 text-emerald-600 dark:text-emerald-400">
+              ${Number(summary.dailyRoiPayout).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+            </p>
+          </div>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">Expected target from active packages</p>
+        </div>
+
+        <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 flex flex-col justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Yesterday's ROI Payout</p>
+            <p className="text-2xl font-bold mt-2 text-amber-600 dark:text-amber-400">
+              ${Number(summary.yesterdayRoiPayout).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+            </p>
+          </div>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">Total ROI credited during the previous day</p>
         </div>
       </div>
 
@@ -150,11 +196,10 @@ export default function RoiCreditsPage() {
                         Package: {row.plan_name ? `${row.plan_name} ($${row.pkg_amount})` : "N/A"}
                       </p>
                     </div>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      row.type === "ROI" 
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" 
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${row.type === "ROI"
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                         : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-                    }`}>
+                      }`}>
                       {row.type === "ROI" ? "Daily ROI" : "Booster"}
                     </span>
                   </div>
@@ -193,11 +238,10 @@ export default function RoiCreditsPage() {
                         {row.pkg_amount ? `$${row.pkg_amount} ${row.pkg_symbol || "USDT"}` : "-"}
                       </td>
                       <td className="py-3 pr-3">
-                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                          row.type === "ROI"
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${row.type === "ROI"
                             ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                             : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-                        }`}>
+                          }`}>
                           {row.type === "ROI" ? "Daily ROI" : "Booster ROI"}
                         </span>
                       </td>

@@ -36,7 +36,7 @@ interface AuthContextType {
     availableHotels: Hotel[];
     currentHotel: Hotel | null;
     selectHotel: (hotelId: number) => void;
-    login: (token: string, user: User, hotels: Hotel[], permissions?: string[]) => void;
+    login: (token: string, user: User, hotels: Hotel[], permissions?: string[], skipRedirect?: boolean) => void;
     logout: () => void;
     isLoading: boolean;
 }
@@ -170,7 +170,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
 
-    const login = (newToken: string, newUser: User, hotels: Hotel[], permissions: string[] = []) => {
+    const login = (newToken: string, newUser: User, hotels: Hotel[], permissions: string[] = [], skipRedirect = false) => {
         setToken(newToken);
         // Merge permissions into user object for easy access
         const userWithPermissions = { ...newUser, permissions };
@@ -180,6 +180,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         localStorage.setItem('token', newToken);
         localStorage.setItem('user', JSON.stringify(userWithPermissions));
         localStorage.setItem('availableHotels', JSON.stringify(hotels));
+
+        if (skipRedirect) {
+            return;
+        }
 
         if (newUser.role === 'USER') {
             setCurrentHotel(null);

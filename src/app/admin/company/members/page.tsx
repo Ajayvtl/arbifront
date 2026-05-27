@@ -16,6 +16,8 @@ type Member = {
   main_balance: number | null;
   earning_balance: number | null;
   reward_balance: number | null;
+  cumulative_earning: number | null;
+  total_invested: number | null;
   rank_name: string | null;
   direct_count: number;
 };
@@ -24,6 +26,10 @@ export default function CompanyMembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const loadMembers = useCallback(async () => {
     setLoading(true);
@@ -46,6 +52,18 @@ export default function CompanyMembersPage() {
     }, 300);
     return () => clearTimeout(t);
   }, [loadMembers]);
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  const totalMembers = members.length;
+  const totalPages = Math.max(1, Math.ceil(totalMembers / itemsPerPage));
+  const paginatedMembers = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return members.slice(start, start + itemsPerPage);
+  }, [members, currentPage, itemsPerPage]);
 
   const stats = useMemo(() => {
     const total = members.length;
@@ -81,45 +99,85 @@ export default function CompanyMembersPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-auto">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500">
-            <tr>
-              <th className="text-left px-4 py-3">ID</th>
-              <th className="text-left px-4 py-3">Wallet</th>
-              <th className="text-left px-4 py-3">Referral</th>
-              <th className="text-left px-4 py-3">Sponsor</th>
-              <th className="text-left px-4 py-3">Rank</th>
-              <th className="text-left px-4 py-3">Directs</th>
-              <th className="text-left px-4 py-3">Balances</th>
-              <th className="text-left px-4 py-3">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td className="px-4 py-6 text-slate-500" colSpan={8}>Loading members...</td></tr>
-            ) : members.length === 0 ? (
-              <tr><td className="px-4 py-6 text-slate-500" colSpan={8}>No members found.</td></tr>
-            ) : members.map((m) => (
-              <tr key={m.id} className="border-t border-slate-100 dark:border-slate-800">
-                <td className="px-4 py-3">#{m.id}</td>
-                <td className="px-4 py-3 max-w-[220px] truncate" title={m.wallet_address}>{m.wallet_address}</td>
-                <td className="px-4 py-3">{m.referral_code || "-"}</td>
-                <td className="px-4 py-3">{m.sponsor_id || "-"}</td>
-                <td className="px-4 py-3">{m.rank_name || "-"}</td>
-                <td className="px-4 py-3">{m.direct_count || 0}</td>
-                <td className="px-4 py-3 text-xs">
-                  M:{Number(m.main_balance || 0).toFixed(2)} E:{Number(m.earning_balance || 0).toFixed(2)} R:{Number(m.reward_balance || 0).toFixed(2)}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded-full text-xs ${m.is_blocked ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
-                    {m.is_blocked ? "Blocked" : "Active"}
-                  </span>
-                </td>
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden shadow-sm">
+        <div className="overflow-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500">
+              <tr>
+                <th className="text-left px-4 py-3">ID</th>
+                <th className="text-left px-4 py-3">Wallet</th>
+                <th className="text-left px-4 py-3">Referral</th>
+                <th className="text-left px-4 py-3">Sponsor</th>
+                <th className="text-left px-4 py-3">Rank</th>
+                <th className="text-left px-4 py-3">Directs</th>
+                <th className="text-left px-4 py-3">Balances</th>
+                <th className="text-left px-4 py-3">Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td className="px-4 py-6 text-slate-500" colSpan={8}>Loading members...</td></tr>
+              ) : paginatedMembers.length === 0 ? (
+                <tr><td className="px-4 py-6 text-slate-500" colSpan={8}>No members found.</td></tr>
+              ) : paginatedMembers.map((m) => (
+                <tr key={m.id} className="border-t border-slate-100 dark:border-slate-800">
+                  <td className="px-4 py-3">#{m.id}</td>
+                  <td className="px-4 py-3 max-w-[220px] truncate" title={m.wallet_address}>{m.wallet_address}</td>
+                  <td className="px-4 py-3">{m.referral_code || "-"}</td>
+                  <td className="px-4 py-3">{m.sponsor_id || "-"}</td>
+                  <td className="px-4 py-3">{m.rank_name || "-"}</td>
+                  <td className="px-4 py-3">{m.direct_count || 0}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-0.5 text-[11px]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-12 text-[10px] font-bold text-slate-400">Invest:</span>
+                        <span className="font-mono text-blue-600 dark:text-blue-400 font-semibold">${Number(m.total_invested || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-12 text-[10px] font-bold text-slate-400">Earned:</span>
+                        <span className="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">${Number(m.cumulative_earning || 0).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${m.is_blocked ? "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-900/30" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/30"}`}>
+                      {m.is_blocked ? "Blocked" : "Active"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, totalMembers)} of {totalMembers} entries
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
+              >
+                Previous
+              </button>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

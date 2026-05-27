@@ -40,11 +40,16 @@ interface ExchangeActiveSummary {
   profileId: number;
   profileName: string;
   reserveWallet: string;
+  withdrawWallet?: string;
+  depositWallet?: string;
   assetMode: "TOKEN" | "COIN";
   nativeSymbol: string;
   usdtSymbol: string;
   customSymbol: string;
   balances: { bnb: string; usdt: string; token: string };
+  withdrawBalances?: { bnb: string; usdt: string; token: string } | null;
+  depositBalances?: { bnb: string; usdt: string; token: string } | null;
+  routingWallets?: { key: string; address: string; balances: { bnb: string; usdt: string; token: string } | null }[];
   liveRate: { source: string; symbol: string; rateUsd: number };
   chain: { chainId: number | null; explorerUrl: string } | null;
 }
@@ -155,14 +160,18 @@ function HBar({ label, value, max, color, count, total }: { label: string; value
 
 // ─── Donut Chart ────────────────────────────────────────────────────────────
 function DonutChart({ slices, size = 100 }: { slices: { label: string; value: number; color: string }[]; size?: number; }) {
-  const total = slices.reduce((s, sl) => s + sl.value, 0) || 1;
+  const sum = slices.reduce((s, sl) => s + (Number(sl.value) || 0), 0);
+  const total = sum || 1;
   const r = size * 0.36, cx = size / 2, cy = size / 2, stroke = size * 0.13, circ = 2 * Math.PI * r;
   let offset = 0;
   return (
     <div className="flex items-center gap-4 flex-wrap">
       <svg width={size} height={size} className="shrink-0">
+        {/* Background track ring to ensure visibility when empty */}
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#1e293b" strokeWidth={stroke} />
         {slices.map((sl) => {
-          const arc = (sl.value / total) * circ;
+          const val = Number(sl.value) || 0;
+          const arc = (val / total) * circ;
           const el = (
             <circle key={sl.label} cx={cx} cy={cy} r={r} fill="none"
               stroke={sl.color} strokeWidth={stroke}
@@ -176,78 +185,193 @@ function DonutChart({ slices, size = 100 }: { slices: { label: string; value: nu
           return el;
         })}
         <text x={cx} y={cy - 4} textAnchor="middle" dominantBaseline="middle" fontSize={size * 0.11} fontWeight={700} fill="white">
-          {total}
+          {sum}
         </text>
         <text x={cx} y={cy + size * 0.1} textAnchor="middle" dominantBaseline="middle" fontSize={size * 0.08} fill="#64748b">total</text>
       </svg>
       <div className="space-y-2 flex-1 min-w-[120px]">
-        {slices.map((sl) => (
-          <div key={sl.label} className="flex items-center gap-2 text-xs">
-            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: sl.color }} />
-            <span className="text-slate-400 flex-1">{sl.label}</span>
-            <span className="font-bold text-white">{sl.value}</span>
-            <span className="text-slate-600 w-10 text-right">{pct(sl.value, total)}%</span>
-          </div>
-        ))}
+        {slices.map((sl) => {
+          const val = Number(sl.value) || 0;
+          return (
+            <div key={sl.label} className="flex items-center gap-2 text-xs">
+              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: sl.color }} />
+              <span className="text-slate-400 flex-1">{sl.label}</span>
+              <span className="font-bold text-white">{val}</span>
+              <span className="text-slate-600 w-10 text-right">{pct(val, sum || 1)}%</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// ─── Area SVG Chart (multi-series) ──────────────────────────────────────────
-function AreaChart({ series, labels, height = 140 }: {
+// ─── SVG Bar Chart (multi-series, interactive) ─────────────────────────────
+function SessionBarChart({ series, labels, timestamps, height = 160 }: {
   series: { label: string; color: string; values: number[] }[];
-  labels: string[]; height?: number;
+  labels: string[];
+  timestamps?: number[];
+  height?: number;
 }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const width = 600;
-  const n = Math.max(...series.map(s => s.values.length), 2);
-  const step = n > 1 ? width / (n - 1) : width;
+  const n = Math.max(...series.map(s => s.values.length), 1);
+  const paddingLeft = 32;
+  const paddingRight = 12;
+  const chartWidth = width - paddingLeft - paddingRight;
+  const barGroupWidth = chartWidth / n;
+  
   const allVals = series.flatMap(s => s.values);
-  const minV = Math.min(...allVals, 0), maxV = Math.max(...allVals, 1);
-  const range = maxV - minV || 1;
-  const yScale = (v: number) => height - 10 - ((v - minV) / range) * (height - 20);
-  const xScale = (i: number) => i * step;
+  const minV = 0;
+  const maxV = Math.max(...allVals, 1);
+  const range = maxV - minV;
+  
+  const yScale = (v: number) => height - 25 - ((v - minV) / range) * (height - 45);
+  const xScale = (i: number) => paddingLeft + i * barGroupWidth;
+
+  const tzString = useMemo(() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    } catch {
+      return "UTC";
+    }
+  }, []);
 
   return (
-    <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ minWidth: 260 }}>
-        <defs>
-          {series.map((s, idx) => (
-            <linearGradient key={idx} id={`area-${idx}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={s.color} stopOpacity={0.3} />
-              <stop offset="100%" stopColor={s.color} stopOpacity={0} />
-            </linearGradient>
-          ))}
-        </defs>
-        {/* Grid lines */}
-        {[0, 0.25, 0.5, 0.75, 1].map((f) => (
-          <line key={f} x1={0} y1={yScale(minV + f * range)} x2={width} y2={yScale(minV + f * range)}
-            stroke="#1e293b" strokeWidth={1} strokeDasharray="4 4" />
-        ))}
-        {/* X labels */}
-        {labels.map((lbl, i) => (
-          <text key={i} x={xScale(i)} y={height - 1} textAnchor="middle" fontSize={9} fill="#475569">{lbl}</text>
-        ))}
-        {series.map((s, idx) => {
-          if (s.values.length < 2) return null;
-          const pts = s.values.map((v, i) => `${xScale(i)},${yScale(v)}`);
-          const area = `${xScale(0)},${height} ${pts.join(" ")} ${xScale(s.values.length - 1)},${height}`;
-          return (
-            <g key={idx}>
-              <polygon points={area} fill={`url(#area-${idx})`} />
-              <polyline points={pts.join(" ")} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-              {s.values.map((v, i) => (
-                <circle key={i} cx={xScale(i)} cy={yScale(v)} r={3} fill={s.color} opacity={i === s.values.length - 1 ? 1 : 0.5} />
-              ))}
-            </g>
-          );
-        })}
-      </svg>
+    <div className="relative group/chart">
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full relative" style={{ minWidth: 260 }}>
+          {/* Y Axis Grid lines & Labels */}
+          {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+            const val = Math.round(minV + f * range);
+            const y = yScale(val);
+            return (
+              <g key={f}>
+                <line x1={paddingLeft} y1={y} x2={width - paddingRight} y2={y}
+                  stroke="#1e293b" strokeWidth={1} strokeDasharray="3 3" />
+                <text x={paddingLeft - 6} y={y + 3} textAnchor="end" fontSize={8} fill="#475569" fontWeight={500}>{val}</text>
+              </g>
+            );
+          })}
+
+          {/* Vertical Grid lines (lines up and down) */}
+          {Array.from({ length: n }).map((_, i) => {
+            const x = xScale(i) + barGroupWidth / 2;
+            return (
+              <line key={`v-grid-${i}`} x1={x} y1={5} x2={x} y2={height - 25}
+                stroke="#1e293b" strokeWidth={1} strokeDasharray="3 3" opacity={0.35} />
+            );
+          })}
+
+          {/* X Axis line */}
+          <line x1={paddingLeft} y1={height - 25} x2={width - paddingRight} y2={height - 25} stroke="#334155" strokeWidth={1} />
+
+          {/* X labels */}
+          {labels.map((lbl, i) => {
+            if (!lbl) return null;
+            return (
+              <text key={i} x={xScale(i) + barGroupWidth / 2} y={height - 8} textAnchor="middle" fontSize={8} fill="#475569" fontWeight={500}>
+                {lbl}
+              </text>
+            );
+          })}
+
+          {/* Guide Line on Hover */}
+          {hoveredIndex !== null && (
+            <line x1={xScale(hoveredIndex) + barGroupWidth / 2} y1={5} x2={xScale(hoveredIndex) + barGroupWidth / 2} y2={height - 25}
+              stroke="#475569" strokeWidth={1.5} strokeDasharray="3 3" />
+          )}
+
+          {/* Bars */}
+          {Array.from({ length: n }).map((_, i) => {
+            const groupX = xScale(i);
+            const numSeries = series.length;
+            const singleBarWidth = Math.min(20, Math.max(2, (barGroupWidth - 4) / numSeries));
+            const groupWidth = singleBarWidth * numSeries;
+            const groupOffset = (barGroupWidth - groupWidth) / 2;
+            const isHovered = hoveredIndex === i;
+            
+            return (
+              <g key={i}>
+                {series.map((s, sIdx) => {
+                  const val = s.values[i] ?? 0;
+                  const barHeight = ((val - minV) / range) * (height - 45);
+                  const x = groupX + groupOffset + sIdx * singleBarWidth;
+                  const y = height - 25 - barHeight;
+                  
+                  return (
+                    <rect
+                      key={sIdx}
+                      x={x}
+                      y={y}
+                      width={singleBarWidth - 1}
+                      height={Math.max(1.5, barHeight)}
+                      fill={s.color}
+                      opacity={hoveredIndex === null || isHovered ? 1 : 0.4}
+                      rx={1}
+                      style={{ transition: "all 0.15s ease" }}
+                    />
+                  );
+                })}
+              </g>
+            );
+          })}
+
+          {/* Invisible interactive vertical slices for hover detection */}
+          {Array.from({ length: n }).map((_, i) => {
+            const startX = xScale(i);
+            return (
+              <rect key={i} x={startX} y={0} width={barGroupWidth} height={height - 25}
+                fill="transparent" className="cursor-pointer"
+                onMouseEnter={() => setHoveredIndex(i)}
+                onMouseLeave={() => setHoveredIndex(null)}
+              />
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* Glassmorphism HTML Tooltip */}
+      {hoveredIndex !== null && timestamps && timestamps[hoveredIndex] && (
+        <div className="absolute top-0 pointer-events-none rounded-xl border border-slate-700/50 bg-slate-950/90 backdrop-blur-md p-3 text-xs shadow-2xl transition-all duration-75 z-10"
+          style={{
+            left: `${Math.min(80, (hoveredIndex / (n - 1 || 1)) * 100)}%`,
+            transform: "translate(-20%, -105%)",
+          }}
+        >
+          <div className="font-semibold text-slate-300 mb-1.5 border-b border-slate-800 pb-1.5 flex justify-between gap-6">
+            <span>
+              {new Date(timestamps[hoveredIndex]).toLocaleString([], {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit"
+              })}
+            </span>
+            <span className="text-[9px] text-emerald-400 font-normal uppercase tracking-wider">{tzString}</span>
+          </div>
+          <div className="space-y-1 min-w-[125px]">
+            {series.map((s, idx) => (
+              <div key={idx} className="flex items-center justify-between gap-6">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+                  <span className="text-slate-400">{s.label}:</span>
+                </div>
+                <span className="font-bold text-white text-right">
+                  {s.values[hoveredIndex] ?? 0}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Legend */}
       <div className="flex flex-wrap gap-4 mt-2 px-1">
         {series.map((s, i) => (
           <div key={i} className="flex items-center gap-1.5 text-[10px] text-slate-400">
-            <span className="h-2 w-5 rounded" style={{ background: s.color }} />
+            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: s.color }} />
             {s.label}
           </div>
         ))}
@@ -293,6 +417,32 @@ export default function CompanyAdminDashboard() {
     totalInvestment: number;
     totalInvestmentPeriod: number;
     totalDailyRoiPayout: number;
+    totalActualRoiPayoutToday: number;
+    memberStats?: {
+      totalMembers: number;
+      activeMembers: number;
+      blockedMembers: number;
+      inactiveMembers: number;
+      totalMainBalance: number;
+      totalEarningBalance: number;
+      totalRewardBalance: number;
+      tvl: number;
+      totalDirects: number;
+    };
+    payoutStats?: {
+      totalCount: number;
+      totalGross: number;
+      totalCharge: number;
+      totalNet: number;
+      pendingCount: number;
+      pendingNet: number;
+      approvedCount: number;
+      approvedNet: number;
+      rejectedCount: number;
+      rejectedNet: number;
+    };
+    rankDistribution?: { rank_name: string; member_count: number }[];
+    history?: HistoryPoint[];
   } | null>(null);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -304,6 +454,8 @@ export default function CompanyAdminDashboard() {
   const countRef = useRef(REFRESH_SECS);
   const historyRef = useRef<HistoryPoint[]>([]);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
+  const [searchDate, setSearchDate] = useState<string>("");
+  const [zoomPointsCount, setZoomPointsCount] = useState<number>(30);
   const [exchangeSummary, setExchangeSummary] = useState<ExchangeActiveSummary | null>(null);
   const [exchangeLoading, setExchangeLoading] = useState(false);
 
@@ -326,7 +478,7 @@ export default function CompanyAdminDashboard() {
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Active tab
-  const [tab, setTab] = useState<"overview" | "commissions" | "payouts" | "plans" | "members">("overview");
+  const [tab, setTab] = useState<"overview" | "commissions" | "payouts" | "plans" | "members" | "sys_wallets">("overview");
   
   // Clear members state
   const [showClearModal, setShowClearModal] = useState(false);
@@ -350,19 +502,54 @@ export default function CompanyAdminDashboard() {
         totalInvestment: number; 
         totalInvestmentPeriod: number; 
         totalDailyRoiPayout: number; 
+        totalActualRoiPayoutToday: number;
+        memberStats?: {
+          totalMembers: number;
+          activeMembers: number;
+          blockedMembers: number;
+          inactiveMembers: number;
+          totalMainBalance: number;
+          totalEarningBalance: number;
+          totalRewardBalance: number;
+          tvl: number;
+          totalDirects: number;
+        };
+        payoutStats?: {
+          totalCount: number;
+          totalGross: number;
+          totalCharge: number;
+          totalNet: number;
+          pendingCount: number;
+          pendingNet: number;
+          approvedCount: number;
+          approvedNet: number;
+          rejectedCount: number;
+          rejectedNet: number;
+        };
+        rankDistribution?: { rank_name: string; member_count: number }[];
+        history?: HistoryPoint[];
       } | null;
       const p = (pRes.data?.data || []) as Payout[];
       const pl = (plRes.data?.data || []) as Plan[];
       setMembers(m); setCommission(c); setPayouts(p); setPlans(pl);
       setLastUpdated(new Date());
       countRef.current = REFRESH_SECS; setCountdown(REFRESH_SECS);
-      const active = m.filter(mb => !mb.is_blocked && (mb.status === "ACTIVE" || mb.status === "active")).length;
+      
+      const totalCount = c?.memberStats ? c.memberStats.totalMembers : m.length;
+      const active = c?.memberStats ? c.memberStats.activeMembers : m.filter(mb => !mb.is_blocked && (mb.status === "ACTIVE" || mb.status === "active")).length;
       const commTotal = (c?.totals || []).reduce((s, t) => s + Number(t.total_amount || 0), 0);
-      const pending = p.filter(pay => pay.status === "PENDING").length;
-      const tvl = m.reduce((s, mb) => s + Number(mb.main_balance || 0) + Number(mb.earning_balance || 0), 0);
-      const pt: HistoryPoint = { ts: Date.now(), totalMembers: m.length, activeMembers: active, totalCommission: commTotal, pendingPayouts: pending, tvl };
-      historyRef.current = [...historyRef.current.slice(-59), pt];
-      setHistory([...historyRef.current]);
+      const pending = c?.payoutStats ? c.payoutStats.pendingCount : p.filter(pay => pay.status === "PENDING").length;
+      const tvlVal = c?.memberStats ? c.memberStats.tvl : m.reduce((s, mb) => s + Number(mb.main_balance || 0) + Number(mb.earning_balance || 0), 0);
+      
+      // Seed history from server if available, otherwise fallback to real-time snapshot accumulation
+      if (c?.history && Array.isArray(c.history) && c.history.length > 0) {
+        historyRef.current = c.history;
+        setHistory(c.history);
+      } else {
+        const pt: HistoryPoint = { ts: Date.now(), totalMembers: totalCount, activeMembers: active, totalCommission: commTotal, pendingPayouts: pending, tvl: tvlVal };
+        historyRef.current = [...historyRef.current.slice(-59), pt];
+        setHistory([...historyRef.current]);
+      }
 
       // Load active exchange reserve wallet summary (non-fatal)
       setExchangeLoading(true);
@@ -459,17 +646,18 @@ export default function CompanyAdminDashboard() {
   }, []);
 
   // ── Computed ──────────────────────────────────────────────────────────────
-  const totalMembers = members.length;
-  const activeMembers = useMemo(() => members.filter(m => !m.is_blocked && (m.status === "ACTIVE" || m.status === "active")).length, [members]);
-  const blockedMembers = useMemo(() => members.filter(m => !!m.is_blocked).length, [members]);
-  const inactiveMembers = totalMembers - activeMembers - blockedMembers;
-  const tvl = useMemo(() => members.reduce((s, m) => s + Number(m.main_balance || 0) + Number(m.earning_balance || 0), 0), [members]);
+  const totalMembers = useMemo(() => commission?.memberStats ? commission.memberStats.totalMembers : members.length, [members, commission]);
+  const activeMembers = useMemo(() => commission?.memberStats ? commission.memberStats.activeMembers : members.filter(m => !m.is_blocked && (m.status === "ACTIVE" || m.status === "active")).length, [members, commission]);
+  const blockedMembers = useMemo(() => commission?.memberStats ? commission.memberStats.blockedMembers : members.filter(m => !!m.is_blocked).length, [members, commission]);
+  const inactiveMembers = useMemo(() => commission?.memberStats ? commission.memberStats.inactiveMembers : (totalMembers - activeMembers - blockedMembers), [totalMembers, activeMembers, blockedMembers, commission]);
+  const tvl = useMemo(() => commission?.memberStats ? commission.memberStats.tvl : members.reduce((s, m) => s + Number(m.main_balance || 0) + Number(m.earning_balance || 0), 0), [members, commission]);
 
   const commTotals = useMemo(() => commission?.totals || [], [commission]);
   const topEarners = useMemo(() => (commission?.topEarners || []).slice(0, 10), [commission]);
   const totalInvestment = useMemo(() => commission?.totalInvestment || 0, [commission]);
   const totalInvestmentPeriod = useMemo(() => commission?.totalInvestmentPeriod || 0, [commission]);
   const totalDailyRoiPayout = useMemo(() => commission?.totalDailyRoiPayout || 0, [commission]);
+  const totalActualRoiPayoutToday = useMemo(() => commission?.totalActualRoiPayoutToday || 0, [commission]);
   const totalCommission = useMemo(() => commTotals.reduce((s, t) => s + Number(t.total_amount || 0), 0), [commTotals]);
   const totalTxns = useMemo(() => commTotals.reduce((s, t) => s + Number(t.total_count || 0), 0), [commTotals]);
 
@@ -477,33 +665,155 @@ export default function CompanyAdminDashboard() {
     const pending = payouts.filter(p => p.status === "PENDING");
     const approved = payouts.filter(p => p.status === "APPROVED" || p.status === "SUCCESS");
     const rejected = payouts.filter(p => p.status === "REJECTED");
+    
+    if (commission?.payoutStats) {
+      return {
+        pending, approved, rejected,
+        pendingNet: commission.payoutStats.pendingNet,
+        approvedNet: commission.payoutStats.approvedNet,
+        rejectedNet: commission.payoutStats.rejectedNet,
+        // Helper count fields:
+        pendingCountServer: commission.payoutStats.pendingCount,
+        approvedCountServer: commission.payoutStats.approvedCount,
+        rejectedCountServer: commission.payoutStats.rejectedCount,
+        totalCountServer: commission.payoutStats.totalCount,
+        totalGrossServer: commission.payoutStats.totalGross,
+        totalChargeServer: commission.payoutStats.totalCharge,
+        totalNetServer: commission.payoutStats.totalNet,
+      };
+    }
+    
     return {
       pending, approved, rejected,
       pendingNet: pending.reduce((s, p) => s + Number(p.net_amount || 0), 0),
       approvedNet: approved.reduce((s, p) => s + Number(p.net_amount || 0), 0),
       rejectedNet: rejected.reduce((s, p) => s + Number(p.net_amount || 0), 0),
+      pendingCountServer: undefined,
+      approvedCountServer: undefined,
+      rejectedCountServer: undefined,
+      totalCountServer: undefined,
+      totalGrossServer: undefined,
+      totalChargeServer: undefined,
     };
-  }, [payouts]);
+  }, [payouts, commission]);
 
-  // Sparkline histories
+  const allWallets = useMemo(() => {
+    if (!exchangeSummary) return [];
+    const list = [
+      {
+        name: "Exchange Reserve Wallet",
+        desc: "Main platform reserve wallet",
+        badge: "Reserve",
+        badgeBg: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+        address: exchangeSummary.reserveWallet,
+        balances: exchangeSummary.balances,
+      },
+      {
+        name: "Deposit Receiver Wallet",
+        desc: "Receives member purchase transactions",
+        badge: "Deposit",
+        badgeBg: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+        address: exchangeSummary.depositWallet,
+        balances: exchangeSummary.depositBalances,
+      },
+      {
+        name: "Withdrawal Wallet",
+        desc: "Processes automated withdrawal requests",
+        badge: "Withdrawal",
+        badgeBg: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+        address: exchangeSummary.withdrawWallet,
+        balances: exchangeSummary.withdrawBalances,
+      },
+    ];
+
+    if (exchangeSummary.routingWallets) {
+      exchangeSummary.routingWallets.forEach((w, idx) => {
+        list.push({
+          name: w.key || `Route Wallet ${idx + 1}`,
+          desc: "Sequential routing channel",
+          badge: `Route ${idx + 1}`,
+          badgeBg: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+          address: w.address,
+          balances: w.balances,
+        });
+      });
+    }
+    return list;
+  }, [exchangeSummary]);
+
+  // Filtered history based on searchDate
+  const filteredHistory = useMemo(() => {
+    if (!searchDate) return history;
+    return history.filter(h => {
+      const d = new Date(h.ts);
+      const dateStr = d.toISOString().split("T")[0]; // YYYY-MM-DD
+      const localDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      return dateStr === searchDate || localDateStr === searchDate;
+    });
+  }, [history, searchDate]);
+
+  // Zoomed subset of history
+  const chartHistory = useMemo(() => {
+    return filteredHistory.slice(-zoomPointsCount);
+  }, [filteredHistory, zoomPointsCount]);
+
+  // Sparkline histories (unfiltered for top level KPIs)
   const hMembers = history.map(h => h.totalMembers);
   const hActive = history.map(h => h.activeMembers);
   const hComm = history.map(h => h.totalCommission);
   const hPending = history.map(h => h.pendingPayouts);
   const hTvl = history.map(h => h.tvl);
 
-  // For member rank distribution
-  const rankDist = useMemo(() => {
-    const map: Record<string, number> = {};
-    members.forEach(m => { const k = m.rank_name || "Unranked"; map[k] = (map[k] || 0) + 1; });
-    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  }, [members]);
-
-  // Area chart from history
-  const areaLabels = history.map((h, i) => {
-    if (i === 0 || i === history.length - 1) return new Date(h.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    return "";
+  // Bar chart trend values (filtered by date & zoomed)
+  const fMembers = chartHistory.map(h => h.totalMembers);
+  const fActive = chartHistory.map(h => h.activeMembers);
+  const fInactive = chartHistory.map(h => Math.max(0, h.totalMembers - h.activeMembers));
+  const fNewRegs = chartHistory.map((h, i) => {
+    const baseIdx = history.findIndex(bh => bh.ts === h.ts);
+    if (baseIdx <= 0) return 0;
+    return Math.max(0, h.totalMembers - history[baseIdx - 1].totalMembers);
   });
+
+  // For member rank distribution
+  const rankDist = useMemo<[string, number][]>(() => {
+    if (commission?.rankDistribution) {
+      return commission.rankDistribution.map((r: { rank_name: string; member_count: number }) => [r.rank_name, r.member_count] as [string, number]);
+    }
+    const map: Record<string, number> = {};
+    members.forEach(m => {
+      if (m.rank_name && m.rank_name !== "Unranked" && m.rank_name !== "unranked") {
+        const k = m.rank_name;
+        map[k] = (map[k] || 0) + 1;
+      }
+    });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 6) as [string, number][];
+  }, [members, commission]);
+
+  // Area/Bar chart labels with 3-hour intervals from zoomed chartHistory
+  const areaLabels = useMemo(() => {
+    let lastLabeledHour = -1;
+    const spanMs = (chartHistory[chartHistory.length - 1]?.ts || 0) - (chartHistory[0]?.ts || 0);
+    const showDate = spanMs > 24 * 60 * 60 * 1000;
+
+    return chartHistory.map((h, i) => {
+      const d = new Date(h.ts);
+      const hour = d.getHours();
+      const isFirst = i === 0;
+      const isLast = i === chartHistory.length - 1;
+
+      // Show labels at 3 hour intervals or first/last points
+      if (isFirst || isLast || (hour % 3 === 0 && hour !== lastLabeledHour)) {
+        if (hour % 3 === 0) {
+          lastLabeledHour = hour;
+        }
+        if (showDate) {
+          return d.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+        }
+        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+      }
+      return "";
+    });
+  }, [chartHistory]);
 
   const barMax = Math.max(...commTotals.map(t => Number(t.total_amount || 0)), 1);
 
@@ -546,7 +856,7 @@ export default function CompanyAdminDashboard() {
             </div>
             <div className="flex flex-col items-start md:items-end gap-3">
               {/* Period Selector */}
-              <div className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1">
+              {/* <div className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1">
                 <Filter className="h-3.5 w-3.5 text-slate-500 ml-1 mr-0.5" />
                 {PERIODS.map(p => (
                   <button key={p.days} type="button" onClick={() => setDays(p.days)}
@@ -554,9 +864,9 @@ export default function CompanyAdminDashboard() {
                     {p.label}
                   </button>
                 ))}
-              </div>
+              </div> */}
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 mr-2 border-r border-slate-700/50 pr-4">
+                {/* <div className="flex items-center gap-2 mr-2 border-r border-slate-700/50 pr-4">
                   <button type="button" onClick={handleExport} disabled={isExporting}
                     className="h-8 px-3 rounded-lg border border-slate-700 bg-slate-800/50 text-[10px] font-bold text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50 transition-all flex items-center gap-1.5 disabled:opacity-50">
                     <Download className={`h-3 w-3 ${isExporting ? "animate-pulse" : ""}`} /> 
@@ -572,7 +882,7 @@ export default function CompanyAdminDashboard() {
                     className="h-8 px-3 rounded-lg border border-rose-700/50 bg-rose-900/10 text-[10px] font-bold text-rose-300 hover:text-rose-400 hover:bg-rose-900/30 transition-all flex items-center gap-1.5">
                     <Trash2 className="h-3 w-3" /> Clear Members
                   </button>
-                </div>
+                </div> */}
                 <LiveBadge lastUpdated={lastUpdated} countdown={countdown} />
                 <button type="button" onClick={() => void fetchAll(days)}
                   className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-emerald-600 hover:text-white transition-all flex items-center gap-1.5">
@@ -584,21 +894,20 @@ export default function CompanyAdminDashboard() {
         </header>
 
         {/* ── KPI Row ─────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
           <KpiCard label="Total Investment" value={`$${fmt(totalInvestment)}`} sub={`$${fmt(totalInvestmentPeriod)} last ${days}d`} icon={BarChart3} color={C.emerald} history={[]} />
-          <KpiCard label="Daily ROI Payout" value={`$${fmt(totalDailyRoiPayout)}`} sub="Scheduled today" icon={Zap} color={C.amber} history={[]} />
+          <KpiCard label="Projected Daily ROI" value={`$${fmt(totalDailyRoiPayout)}`} sub="Estimated target" icon={Zap} color={C.amber} history={[]} />
+          <KpiCard label="Today's ROI Payout" value={`$${fmt(totalActualRoiPayoutToday)}`} sub="Processed today" icon={Activity} color={C.emerald} history={[]} />
           <KpiCard label="User Base" value={`${activeMembers} / ${totalMembers}`} sub={`${pct(activeMembers, totalMembers)}% active`} icon={Users} color={C.sky} history={hMembers} />
-          <KpiCard label={`Comms ${days}d`} value={`$${fmt(totalCommission)}`} sub={`${totalTxns} entries`} icon={TrendingUp} color={C.amber} history={hComm} />
-          <KpiCard label="Pending Payouts" value={payoutByStatus.pending.length.toString()} sub={`$${fmt(payoutByStatus.pendingNet)} net`} icon={Clock} color={C.orange} history={hPending} />
-          <KpiCard label="O/S Balances" value={`$${fmt(tvl)}`} sub="User wallet credits" icon={Wallet} color={C.violet} history={hTvl} />
+          <KpiCard label="Pending Payouts" value={(payoutByStatus.pendingCountServer ?? payoutByStatus.pending.length).toString()} sub={`$${fmt(payoutByStatus.pendingNet)} net`} icon={Clock} color={C.orange} history={hPending} />
         </div>
 
         {/* ── Tabs ────────────────────────────────────────────────────── */}
         <div className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1 overflow-x-auto">
-          {(["overview", "commissions", "payouts", "plans", "members"] as const).map(t => (
+          {(["overview", "commissions", "payouts", "plans", "members", "sys_wallets"] as const).map(t => (
             <button key={t} type="button" onClick={() => setTab(t)}
-              className={`rounded-lg px-4 py-2 text-xs font-semibold capitalize whitespace-nowrap transition-all ${tab === t ? "bg-slate-700 text-white shadow" : "text-slate-400 hover:text-white"}`}>
-              {t}
+              className={`rounded-lg px-4 py-2 text-xs font-semibold whitespace-nowrap transition-all ${tab === t ? "bg-slate-700 text-white shadow" : "text-slate-400 hover:text-white"}`}>
+              {t === "sys_wallets" ? "Sys Wallets" : t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
           ))}
         </div>
@@ -610,26 +919,79 @@ export default function CompanyAdminDashboard() {
           <div className="space-y-5">
 
             {/* Live trend chart */}
-            {history.length >= 3 && (
+            {history.length >= 1 && (
               <div className="rounded-2xl border border-slate-800 bg-[#0d1626] p-5">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                   <div>
                     <h2 className="text-sm font-semibold">Live Session Trend</h2>
                     <p className="text-[11px] text-slate-500 mt-0.5">Accumulates every 60s · up to 60 readings</p>
                   </div>
-                  <div className="flex items-center gap-1.5 text-[10px] text-slate-500 border border-slate-800 rounded-lg px-2 py-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    {history.length} readings
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-1 border border-slate-800 rounded-lg p-0.5 bg-slate-900">
+                      <button
+                        type="button"
+                        onClick={() => setZoomPointsCount(prev => Math.max(5, prev - 5))}
+                        disabled={zoomPointsCount <= 5}
+                        className="h-6 w-6 rounded bg-slate-800 text-[11px] font-bold text-slate-300 hover:text-emerald-400 hover:bg-slate-700 disabled:opacity-30 disabled:hover:text-slate-300 disabled:hover:bg-slate-800 transition-colors"
+                        title="Zoom In (Fewer points)"
+                      >
+                        ＋
+                      </button>
+                      <span className="text-[9px] text-slate-500 px-1 font-bold uppercase tracking-wider select-none">Zoom</span>
+                      <button
+                        type="button"
+                        onClick={() => setZoomPointsCount(prev => Math.min(Math.max(filteredHistory.length, 30), prev + 5))}
+                        disabled={zoomPointsCount >= Math.max(filteredHistory.length, 30)}
+                        className="h-6 w-6 rounded bg-slate-800 text-[11px] font-bold text-slate-300 hover:text-emerald-400 hover:bg-slate-700 disabled:opacity-30 disabled:hover:text-slate-300 disabled:hover:bg-slate-800 transition-colors"
+                        title="Zoom Out (More points)"
+                      >
+                        －
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Search Date:</span>
+                      <input
+                        type="date"
+                        value={searchDate}
+                        onChange={(e) => setSearchDate(e.target.value)}
+                        className="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300 focus:outline-none focus:border-emerald-500 transition-colors"
+                      />
+                      {searchDate && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchDate("")}
+                          className="text-[10px] text-rose-400 hover:text-rose-300 font-bold"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500 border border-slate-800 rounded-lg px-2 py-1 bg-slate-900/50">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      {chartHistory.length} of {filteredHistory.length} shown
+                    </div>
                   </div>
                 </div>
-                <AreaChart
-                  series={[
-                    { label: "Members", color: C.emerald, values: hMembers },
-                    { label: "Active", color: C.sky, values: hActive },
-                  ]}
-                  labels={areaLabels}
-                  height={120}
-                />
+
+                {filteredHistory.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-[160px] border border-dashed border-slate-800 rounded-xl bg-slate-950/20 text-slate-500 text-xs">
+                    <AlertCircle className="h-5 w-5 mb-1.5 text-slate-600" />
+                    <span>No readings recorded on {new Date(searchDate + "T00:00:00").toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}</span>
+                  </div>
+                ) : (
+                  <SessionBarChart
+                    series={[
+                      { label: "Total Members", color: C.violet, values: fMembers },
+                      { label: "Active Members", color: C.emerald, values: fActive },
+                      { label: "Inactive Members", color: C.orange, values: fInactive },
+                      { label: "New Registrations", color: C.sky, values: fNewRegs },
+                    ]}
+                    labels={areaLabels}
+                    timestamps={chartHistory.map(h => h.ts)}
+                    height={160}
+                  />
+                )}
               </div>
             )}
 
@@ -638,15 +1000,15 @@ export default function CompanyAdminDashboard() {
               <div className="rounded-2xl border border-slate-800 bg-[#0d1626] p-5">
                 <h2 className="text-sm font-semibold mb-4">Member Health</h2>
                 <DonutChart slices={[
-                  { label: "Active", value: activeMembers, color: C.emerald },
-                  { label: "Inactive", value: inactiveMembers, color: C.amber },
-                  { label: "Blocked", value: blockedMembers, color: C.rose },
+                  { label: "Active", value: Number(activeMembers) || 0, color: C.emerald },
+                  { label: "Inactive", value: Number(inactiveMembers) || 0, color: C.amber },
+                  { label: "Blocked", value: Number(blockedMembers) || 0, color: C.rose },
                 ]} size={110} />
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
                   {[
-                    { label: "Active", val: activeMembers, color: C.emerald },
-                    { label: "Inactive", val: inactiveMembers, color: C.amber },
-                    { label: "Blocked", val: blockedMembers, color: C.rose },
+                    { label: "Active", val: Number(activeMembers) || 0, color: C.emerald },
+                    { label: "Inactive", val: Number(inactiveMembers) || 0, color: C.amber },
+                    { label: "Blocked", val: Number(blockedMembers) || 0, color: C.rose },
                   ].map(item => (
                     <div key={item.label} className="rounded-xl border border-slate-800 bg-slate-900 p-2">
                       <p className="text-sm font-bold" style={{ color: item.color }}>{item.val}</p>
@@ -659,10 +1021,22 @@ export default function CompanyAdminDashboard() {
               <div className="rounded-2xl border border-slate-800 bg-[#0d1626] p-5">
                 <h2 className="text-sm font-semibold mb-4">Withdrawal Queue</h2>
                 <DonutChart slices={[
-                  { label: "Pending", value: payoutByStatus.pending.length, color: C.amber },
-                  { label: "Approved", value: payoutByStatus.approved.length, color: C.emerald },
-                  { label: "Rejected", value: payoutByStatus.rejected.length, color: C.rose },
+                  { label: "Pending", value: Number(payoutByStatus.pendingCountServer ?? payoutByStatus.pending.length) || 0, color: C.amber },
+                  { label: "Approved", value: Number(payoutByStatus.approvedCountServer ?? payoutByStatus.approved.length) || 0, color: C.emerald },
+                  { label: "Rejected", value: Number(payoutByStatus.rejectedCountServer ?? payoutByStatus.rejected.length) || 0, color: C.rose },
                 ]} size={110} />
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+                  {[
+                    { label: "Pending", val: Number(payoutByStatus.pendingCountServer ?? payoutByStatus.pending.length) || 0, color: C.amber },
+                    { label: "Approved", val: Number(payoutByStatus.approvedCountServer ?? payoutByStatus.approved.length) || 0, color: C.emerald },
+                    { label: "Rejected", val: Number(payoutByStatus.rejectedCountServer ?? payoutByStatus.rejected.length) || 0, color: C.rose },
+                  ].map(item => (
+                    <div key={item.label} className="rounded-xl border border-slate-800 bg-slate-900 p-2">
+                      <p className="text-sm font-bold" style={{ color: item.color }}>{item.val}</p>
+                      <p className="text-slate-500">{item.label}</p>
+                    </div>
+                  ))}
+                </div>
                 <div className="mt-4 space-y-2">
                   {[
                     { label: "Pending Net", val: payoutByStatus.pendingNet, color: C.amber },
@@ -682,10 +1056,11 @@ export default function CompanyAdminDashboard() {
                   <p className="text-xs text-slate-500 text-center py-8">No rank data</p>
                 ) : (
                   <div className="space-y-2">
-                    {rankDist.map(([name, count], i) => {
+                    {rankDist.map(([name, count]: [string, number], i: number) => {
                       const rankColors = [C.amber, C.sky, C.violet, C.emerald, C.orange, C.teal];
                       const col = rankColors[i % rankColors.length];
-                      const w = (count / totalMembers) * 100;
+                      const maxCount = Math.max(...rankDist.map(rd => rd[1]), 1);
+                      const w = (count / maxCount) * 100;
                       return (
                         <div key={name}>
                           <div className="flex justify-between text-[11px] mb-0.5">
@@ -703,14 +1078,14 @@ export default function CompanyAdminDashboard() {
               </div>
             </div>
 
-            {/* Exchange Reserve Wallet Summary */}
-            <div className="rounded-2xl border border-slate-800 bg-[#0d1626] p-5">
-              <div className="flex items-center justify-between gap-3 mb-4">
+            {/* System Wallet Hub */}
+            <div className="rounded-2xl border border-slate-800 bg-[#0d1626] p-5 space-y-4">
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-4.5 w-4.5 text-emerald-400" />
                   <div>
-                    <h2 className="text-sm font-semibold">Exchange Reserve Wallet</h2>
-                    <p className="text-[11px] text-slate-500">Live balances + live rate from configured source</p>
+                    <h2 className="text-sm font-semibold">System Wallet Hub</h2>
+                    <p className="text-[11px] text-slate-500">Live balances + live rates from configured exchange settings</p>
                   </div>
                 </div>
                 <button
@@ -724,40 +1099,56 @@ export default function CompanyAdminDashboard() {
               </div>
 
               {!exchangeSummary ? (
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-slate-500 py-4 text-center">
                   No active exchange profile (or insufficient permissions).
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                  <div className="md:col-span-5 rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Reserve Address</div>
-                    <div className="mt-1 font-mono text-xs text-slate-200 break-all">{exchangeSummary.reserveWallet}</div>
-                    <div className="mt-2 text-[11px] text-slate-500">
-                      Mode: <span className="font-bold text-slate-300">{exchangeSummary.assetMode}</span>
-                      {exchangeSummary.chain?.chainId ? (
-                        <>
-                          {" "}· Chain: <span className="font-bold text-slate-300">{exchangeSummary.chain.chainId}</span>
-                        </>
-                      ) : null}
-                    </div>
+                <div className="space-y-4">
+                  {/* Grid of wallets */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {allWallets.map((wallet) => (
+                      <div key={wallet.name} className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 flex flex-col justify-between gap-4">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <h3 className="text-xs font-bold text-slate-200 truncate">{wallet.name}</h3>
+                              <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">{wallet.desc}</p>
+                            </div>
+                            <span className={`text-[9px] uppercase font-extrabold px-1.5 py-0.5 rounded border shrink-0 ${wallet.badgeBg}`}>
+                              {wallet.badge}
+                            </span>
+                          </div>
+
+                          <div className="rounded-xl border border-slate-800 bg-slate-950 p-2.5">
+                            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Address</div>
+                            <div className="mt-1 font-mono text-[10px] text-slate-300 break-all select-all leading-tight">
+                              {wallet.address || "Not Configured"}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <div className="rounded-xl border border-slate-800 bg-slate-950 p-2 text-center">
+                            <div className="text-[9px] font-bold text-slate-500">{"BNB"}</div>
+                            <div className="mt-1 font-mono text-[10px] font-bold text-slate-200 truncate">{wallet.balances?.bnb || "0.0000"}</div>
+                          </div>
+                          <div className="rounded-xl border border-slate-800 bg-slate-950 p-2 text-center">
+                            <div className="text-[9px] font-bold text-slate-500">USDT</div>
+                            <div className="mt-1 font-mono text-[10px] font-bold text-slate-200 truncate">{wallet.balances?.usdt || "0.00"}</div>
+                          </div>
+                          <div className="rounded-xl border border-slate-800 bg-slate-950 p-2 text-center">
+                            <div className="text-[9px] font-bold text-emerald-400">{exchangeSummary.customSymbol || "TOKEN"}</div>
+                            <div className="mt-1 font-mono text-[10px] font-bold text-emerald-400 truncate">
+                              {exchangeSummary.assetMode === "TOKEN" ? wallet.balances?.token || "0.00" : wallet.balances?.bnb || "0.0000"}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
-                  <div className="md:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-center">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{exchangeSummary.nativeSymbol}</div>
-                      <div className="mt-1 font-mono text-sm font-extrabold text-slate-100">{exchangeSummary.balances.bnb}</div>
-                    </div>
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-center">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">USDT</div>
-                      <div className="mt-1 font-mono text-sm font-extrabold text-slate-100">{exchangeSummary.balances.usdt}</div>
-                    </div>
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-center">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{exchangeSummary.customSymbol}</div>
-                      <div className="mt-1 font-mono text-sm font-extrabold text-emerald-400">{exchangeSummary.assetMode === "TOKEN" ? exchangeSummary.balances.token : exchangeSummary.balances.bnb}</div>
-                    </div>
-                  </div>
-
-                  <div className="md:col-span-12 rounded-2xl border border-slate-800 bg-slate-900 p-4 flex flex-wrap items-center justify-between gap-3">
+                  {/* Live Rate and Explorer metadata */}
+                  <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 flex flex-wrap items-center justify-between gap-3">
                     <div className="text-xs text-slate-300">
                       Live Rate:{" "}
                       <span className="font-mono font-extrabold text-emerald-400">
@@ -767,12 +1158,6 @@ export default function CompanyAdminDashboard() {
                         {" "}· Source: {exchangeSummary.liveRate.source} · Symbol: {exchangeSummary.liveRate.symbol}
                       </span>
                     </div>
-                    <Link
-                      href="/developer/company/exch"
-                      className="text-xs font-bold text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1.5"
-                    >
-                      Configure Exchange <ArrowUpRight className="h-3.5 w-3.5" />
-                    </Link>
                   </div>
                 </div>
               )}
@@ -783,9 +1168,9 @@ export default function CompanyAdminDashboard() {
               <h2 className="text-sm font-semibold mb-4">Withdrawal Flow Analysis · {days}d window</h2>
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: "Total Requests", val: payouts.length, sub: `$${fmt(payouts.reduce((s, p) => s + Number(p.amount || 0), 0))} gross`, color: C.sky, icon: Wallet },
-                  { label: "Pending", val: payoutByStatus.pending.length, sub: `$${fmt(payoutByStatus.pendingNet)} net`, color: C.amber, icon: Clock },
-                  { label: "Processed", val: payoutByStatus.approved.length + payoutByStatus.rejected.length, sub: `${payoutByStatus.rejected.length} rejected`, color: C.emerald, icon: BadgeCheck },
+                  { label: "Total Requests", val: payoutByStatus.totalCountServer ?? payouts.length, sub: `$${fmt(payoutByStatus.totalGrossServer ?? payouts.reduce((s, p) => s + Number(p.amount || 0), 0))} gross`, color: C.sky, icon: Wallet },
+                  { label: "Pending", val: payoutByStatus.pendingCountServer ?? payoutByStatus.pending.length, sub: `$${fmt(payoutByStatus.pendingNet)} net`, color: C.amber, icon: Clock },
+                  { label: "Processed", val: (payoutByStatus.approvedCountServer ?? payoutByStatus.approved.length) + (payoutByStatus.rejectedCountServer ?? payoutByStatus.rejected.length), sub: `${payoutByStatus.rejectedCountServer ?? payoutByStatus.rejected.length} rejected`, color: C.emerald, icon: BadgeCheck },
                 ].map(item => {
                   const Icon = item.icon;
                   return (
@@ -803,9 +1188,9 @@ export default function CompanyAdminDashboard() {
               {/* Progress bar */}
               <div className="mt-4 space-y-2">
                 {[
-                  { label: "Approval Rate", a: payoutByStatus.approved.length, total: payouts.length, color: C.emerald },
-                  { label: "Pending Rate", a: payoutByStatus.pending.length, total: payouts.length, color: C.amber },
-                  { label: "Rejection Rate", a: payoutByStatus.rejected.length, total: payouts.length, color: C.rose },
+                  { label: "Approval Rate", a: payoutByStatus.approvedCountServer ?? payoutByStatus.approved.length, total: payoutByStatus.totalCountServer ?? payouts.length, color: C.emerald },
+                  { label: "Pending Rate", a: payoutByStatus.pendingCountServer ?? payoutByStatus.pending.length, total: payoutByStatus.totalCountServer ?? payouts.length, color: C.amber },
+                  { label: "Rejection Rate", a: payoutByStatus.rejectedCountServer ?? payoutByStatus.rejected.length, total: payoutByStatus.totalCountServer ?? payouts.length, color: C.rose },
                 ].map(item => (
                   <div key={item.label} className="flex items-center gap-3 text-xs">
                     <span className="w-24 text-slate-400 shrink-0">{item.label}</span>
@@ -989,9 +1374,9 @@ export default function CompanyAdminDashboard() {
             {/* Status breakdown */}
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "Pending", count: payoutByStatus.pending.length, net: payoutByStatus.pendingNet, color: C.amber, icon: Clock },
-                { label: "Approved", count: payoutByStatus.approved.length, net: payoutByStatus.approvedNet, color: C.emerald, icon: BadgeCheck },
-                { label: "Rejected", count: payoutByStatus.rejected.length, net: payoutByStatus.rejectedNet, color: C.rose, icon: AlertCircle },
+                { label: "Pending", count: payoutByStatus.pendingCountServer ?? payoutByStatus.pending.length, net: payoutByStatus.pendingNet, color: C.amber, icon: Clock },
+                { label: "Approved", count: payoutByStatus.approvedCountServer ?? payoutByStatus.approved.length, net: payoutByStatus.approvedNet, color: C.emerald, icon: BadgeCheck },
+                { label: "Rejected", count: payoutByStatus.rejectedCountServer ?? payoutByStatus.rejected.length, net: payoutByStatus.rejectedNet, color: C.rose, icon: AlertCircle },
               ].map(item => {
                 const Icon = item.icon;
                 return (
@@ -1223,8 +1608,217 @@ export default function CompanyAdminDashboard() {
           </div>
         )}
 
+        {/* ══════════════════════════════════════════════════════════════
+            TAB: SYS WALLETS
+        ══════════════════════════════════════════════════════════════ */}
+        {tab === "sys_wallets" && (
+          <div className="space-y-5">
+            {/* Live Exchange Rate bar */}
+            {exchangeSummary && (
+              <div className="rounded-2xl border border-slate-800 bg-[#0d1626] p-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs text-slate-300 flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Live Exchange Feed:</span>
+                  <span className="font-mono font-extrabold text-emerald-400">
+                    {Number(exchangeSummary.liveRate.rateUsd || 0).toFixed(6)} USDT
+                  </span>
+                  <span className="text-slate-500">
+                    ({exchangeSummary.liveRate.symbol} · via {exchangeSummary.liveRate.source})
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  Mode: <span className="font-bold text-slate-300">{exchangeSummary.assetMode}</span>
+                  {exchangeSummary.chain?.chainId ? (
+                    <> · Chain ID: <span className="font-bold text-slate-300">{exchangeSummary.chain.chainId}</span></>
+                  ) : null}
+                </div>
+              </div>
+            )}
+
+            {/* Wallets Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* 1. Reserve Wallet Card */}
+              <div className="rounded-2xl border border-slate-800 bg-[#0d1626] p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-indigo-400" />
+                    <div>
+                      <h3 className="text-sm font-bold">Exchange Reserve Wallet</h3>
+                      <p className="text-[10px] text-slate-500">Sweeper & routing source fund pool</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    Reserve
+                  </span>
+                </div>
+                
+                <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Wallet Address</div>
+                  <div className="mt-1 font-mono text-[11px] text-slate-200 break-all select-all">
+                    {exchangeSummary?.reserveWallet || "Not Configured"}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+                    <div className="text-[9px] font-bold text-slate-500">{exchangeSummary?.nativeSymbol || "BNB"}</div>
+                    <div className="mt-1 font-mono text-xs font-bold text-slate-200">{exchangeSummary?.balances?.bnb || "0.0000"}</div>
+                  </div>
+                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+                    <div className="text-[9px] font-bold text-slate-500">USDT</div>
+                    <div className="mt-1 font-mono text-xs font-bold text-slate-200">{exchangeSummary?.balances?.usdt || "0.00"}</div>
+                  </div>
+                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+                    <div className="text-[9px] font-bold text-emerald-400">{exchangeSummary?.customSymbol || "TOKEN"}</div>
+                    <div className="mt-1 font-mono text-xs font-bold text-emerald-400">
+                      {exchangeSummary?.assetMode === "TOKEN" ? exchangeSummary?.balances?.token : exchangeSummary?.balances?.bnb}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Deposit Wallet Card */}
+              <div className="rounded-2xl border border-slate-800 bg-[#0d1626] p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-emerald-400" />
+                    <div>
+                      <h3 className="text-sm font-bold">Deposit Receiver Wallet</h3>
+                      <p className="text-[10px] text-slate-500">Receives purchase transactions from members</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    Deposit
+                  </span>
+                </div>
+                
+                <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Wallet Address</div>
+                  <div className="mt-1 font-mono text-[11px] text-slate-200 break-all select-all">
+                    {exchangeSummary?.depositWallet || "Not Configured"}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+                    <div className="text-[9px] font-bold text-slate-500">{exchangeSummary?.nativeSymbol || "BNB"}</div>
+                    <div className="mt-1 font-mono text-xs font-bold text-slate-200">{exchangeSummary?.depositBalances?.bnb || "0.0000"}</div>
+                  </div>
+                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+                    <div className="text-[9px] font-bold text-slate-500">USDT</div>
+                    <div className="mt-1 font-mono text-xs font-bold text-slate-200">{exchangeSummary?.depositBalances?.usdt || "0.00"}</div>
+                  </div>
+                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+                    <div className="text-[9px] font-bold text-emerald-400">{exchangeSummary?.customSymbol || "TOKEN"}</div>
+                    <div className="mt-1 font-mono text-xs font-bold text-emerald-400">
+                      {exchangeSummary?.assetMode === "TOKEN" ? exchangeSummary?.depositBalances?.token : exchangeSummary?.depositBalances?.bnb}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Withdrawal Wallet Card */}
+              <div className="rounded-2xl border border-slate-800 bg-[#0d1626] p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-amber-400" />
+                    <div>
+                      <h3 className="text-sm font-bold">Withdrawal Wallet</h3>
+                      <p className="text-[10px] text-slate-500">Processes automated withdrawal requests</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    Withdrawal
+                  </span>
+                </div>
+                
+                <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Wallet Address</div>
+                  <div className="mt-1 font-mono text-[11px] text-slate-200 break-all select-all">
+                    {exchangeSummary?.withdrawWallet || "Not Configured"}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+                    <div className="text-[9px] font-bold text-slate-500">{exchangeSummary?.nativeSymbol || "BNB"}</div>
+                    <div className="mt-1 font-mono text-xs font-bold text-slate-200">{exchangeSummary?.withdrawBalances?.bnb || "0.0000"}</div>
+                  </div>
+                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+                    <div className="text-[9px] font-bold text-slate-500">USDT</div>
+                    <div className="mt-1 font-mono text-xs font-bold text-slate-200">{exchangeSummary?.withdrawBalances?.usdt || "0.00"}</div>
+                  </div>
+                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+                    <div className="text-[9px] font-bold text-emerald-400">{exchangeSummary?.customSymbol || "TOKEN"}</div>
+                    <div className="mt-1 font-mono text-xs font-bold text-emerald-400">
+                      {exchangeSummary?.assetMode === "TOKEN" ? exchangeSummary?.withdrawBalances?.token : exchangeSummary?.withdrawBalances?.bnb}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Routing channels (Up to 5 wallets) */}
+              {exchangeSummary?.routingWallets?.map((w, idx) => (
+                <div key={w.key || idx} className="rounded-2xl border border-slate-800 bg-[#0d1626] p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-5 w-5 text-sky-400" />
+                      <div>
+                        <h3 className="text-sm font-bold">{w.key || `Route ${idx + 1}`}</h3>
+                        <p className="text-[10px] text-slate-500">Configured exchange routing channel</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                      Route {idx + 1}
+                    </span>
+                  </div>
+                  
+                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Wallet Address</div>
+                    <div className="mt-1 font-mono text-[11px] text-slate-200 break-all select-all">
+                      {w.address || "Not Configured"}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+                      <div className="text-[9px] font-bold text-slate-500">{exchangeSummary?.nativeSymbol || "BNB"}</div>
+                      <div className="mt-1 font-mono text-xs font-bold text-slate-200">{w.balances?.bnb || "0.0000"}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+                      <div className="text-[9px] font-bold text-slate-500">USDT</div>
+                      <div className="mt-1 font-mono text-xs font-bold text-slate-200">{w.balances?.usdt || "0.00"}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+                      <div className="text-[9px] font-bold text-emerald-400">{exchangeSummary?.customSymbol || "TOKEN"}</div>
+                      <div className="mt-1 font-mono text-xs font-bold text-emerald-400">
+                        {exchangeSummary?.assetMode === "TOKEN" ? w.balances?.token : w.balances?.bnb}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {(!exchangeSummary?.routingWallets || exchangeSummary.routingWallets.length === 0) && (
+                <div className="md:col-span-2 rounded-2xl border border-dashed border-slate-800 p-8 text-center text-xs text-slate-500">
+                  No sequential routing channels configured. Configure them under the Exchange settings page.
+                </div>
+              )}
+            </div>
+
+            {/* Exchange Routing Config action */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 flex items-center justify-between gap-3">
+              <span className="text-xs text-slate-400">Need to modify keys or routing address definitions?</span>
+              <Link href="/developer/company/exch" className="text-xs font-bold text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1">
+                Go to Exchange Router Configuration <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* ── Quick nav ─────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-slate-800 bg-[#0d1626] p-5">
+        {/* <div className="rounded-2xl border border-slate-800 bg-[#0d1626] p-5">
           <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Operational Modules</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {[
@@ -1260,7 +1854,7 @@ export default function CompanyAdminDashboard() {
               );
             })}
           </div>
-        </div>
+        </div> */}
 
       </div>
 

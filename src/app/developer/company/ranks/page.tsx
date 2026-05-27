@@ -246,40 +246,42 @@ export default function CompanyRanksPage() {
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4"><p className="text-xs text-slate-500">Max Days Rule</p><p className="text-2xl font-semibold">{stats.maxDays}</p></div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 md:p-5 space-y-3">
-        <h2 className="text-lg font-semibold">Reward Credit Wallet</h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          Daily rank reward credits will go to this active wallet type.
-        </p>
-        <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200">
-          Effective Backend Wallet: <span className="font-semibold">{effectiveRewardWallet.label}</span> ({effectiveRewardWallet.code})
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <select
-            value={rankRewardWalletType}
-            disabled={isReadOnlyAdmin}
-            onChange={(e) => setRankRewardWalletType(e.target.value)}
-            className="min-w-[240px] px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-          >
-            {walletTypes.map((wallet) => (
-              <option key={wallet.code} value={wallet.code}>
-                {wallet.label} ({wallet.code})
-              </option>
-            ))}
-            {!walletTypes.length && <option value="reward_balance">Reward Balance (reward_balance)</option>}
-          </select>
-          {!isReadOnlyAdmin && (
-            <button
-              type="button"
-              onClick={() => void saveRewardWallet()}
-              disabled={savingRewardWallet}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+      {!isReadOnlyAdmin && (
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 md:p-5 space-y-3">
+          <h2 className="text-lg font-semibold">Reward Credit Wallet</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Daily rank reward credits will go to this active wallet type.
+          </p>
+          <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200">
+            Effective Backend Wallet: <span className="font-semibold">{effectiveRewardWallet.label}</span> ({effectiveRewardWallet.code})
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <select
+              value={rankRewardWalletType}
+              disabled={isReadOnlyAdmin}
+              onChange={(e) => setRankRewardWalletType(e.target.value)}
+              className="min-w-[240px] px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
             >
-              {savingRewardWallet ? "Saving..." : "Save Wallet Target"}
-            </button>
-          )}
+              {walletTypes.map((wallet) => (
+                <option key={wallet.code} value={wallet.code}>
+                  {wallet.label} ({wallet.code})
+                </option>
+              ))}
+              {!walletTypes.length && <option value="reward_balance">Reward Balance (reward_balance)</option>}
+            </select>
+            {!isReadOnlyAdmin && (
+              <button
+                type="button"
+                onClick={() => void saveRewardWallet()}
+                disabled={savingRewardWallet}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              >
+                {savingRewardWallet ? "Saving..." : "Save Wallet Target"}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {isReadOnlyAdmin ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
@@ -399,20 +401,18 @@ export default function CompanyRanksPage() {
                 <th className="px-4 py-3 font-medium">Directs</th>
                 <th className="px-4 py-3 font-medium">Min Team Business</th>
                 <th className="px-4 py-3 font-medium">Reward</th>
-                <th className="px-4 py-3 font-medium">Days</th>
                 <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Created</th>
                 {!isReadOnlyAdmin && <th className="px-4 py-3 font-medium">Actions</th>}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={isReadOnlyAdmin ? 8 : 9} className="px-4 py-6 text-center text-slate-500">Loading ranks...</td>
+                  <td colSpan={isReadOnlyAdmin ? 6 : 7} className="px-4 py-6 text-center text-slate-500">Loading ranks...</td>
                 </tr>
               ) : ranks.length === 0 ? (
                 <tr>
-                  <td colSpan={isReadOnlyAdmin ? 8 : 9} className="px-4 py-6 text-center text-slate-500">No ranks configured yet.</td>
+                  <td colSpan={isReadOnlyAdmin ? 6 : 7} className="px-4 py-6 text-center text-slate-500">No ranks configured yet.</td>
                 </tr>
               ) : (
                 ranks.map((rank) => (
@@ -422,13 +422,11 @@ export default function CompanyRanksPage() {
                     <td className="px-4 py-3">{Number(rank.directs || 0)}</td>
                     <td className="px-4 py-3">{Number(rank.min_team_business || 0).toFixed(2)}</td>
                     <td className="px-4 py-3">{Number(rank.reward || 0).toFixed(2)}</td>
-                    <td className="px-4 py-3">{Number(rank.days || 0)}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${Number(rank.is_active || 0) === 1 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}>
                         {Number(rank.is_active || 0) === 1 ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{rank.created_at ? new Date(rank.created_at).toLocaleString() : "-"}</td>
                     {!isReadOnlyAdmin && (
                       <td className="px-4 py-3">
                         <button

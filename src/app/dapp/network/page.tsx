@@ -53,6 +53,7 @@ type LevelIncomeRow = {
   source_referral_code?: string | null;
   source_daily_roi_estimate?: number | null;
   token_symbol?: string | null;
+  package_amount?: number | null;
 };
 
 function shortAddress(value?: string | null) {
@@ -502,6 +503,7 @@ export default function DappNetworkPage() {
                       <th className="px-4 py-4">Level</th>
 
                       {/* <th className="px-4 py-4">Referral</th> */}
+                      <th className="px-4 py-4">Member Package</th>
                       <th className="px-4 py-4">Member Daily ROI</th>
                       <th className="px-4 py-4">commission(%)</th>
                       <th className="px-4 py-4">Received</th>
@@ -512,7 +514,7 @@ export default function DappNetworkPage() {
                   <tbody>
                     {levelLoading ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-10 text-center text-[#8aa4bf]">
+                        <td colSpan={9} className="px-4 py-10 text-center text-[#8aa4bf]">
                           <span className="inline-flex items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             Loading level income...
@@ -526,7 +528,7 @@ export default function DappNetworkPage() {
                           <td className="px-4 py-4">Level {row.level || "-"}</td>
                           {/* <td className="px-4 py-4">{row.source_referral_code || `User #${row.source_user_id || "-"}`}</td> */}
 
-
+                          <td className="px-4 py-4">{formatAmount(row.package_amount)} {row.token_symbol || ""}</td>
                           <td className="px-4 py-4 font-medium text-[#dce8f5]">{formatAmount(row.source_daily_roi_estimate)}</td>
                           <td className="px-4 py-4">{Number(row.level_percent || 0).toFixed(2)}%</td>
                           <td className="px-4 py-4 font-semibold text-white">{formatAmount(row.received_amount)}</td>
@@ -597,6 +599,10 @@ export default function DappNetworkPage() {
                           <div>
                             <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Referral</p>
                             <p className="mt-1 text-sm font-medium text-[#dce8f5]">{row.source_referral_code || `User #${row.source_user_id || "-"}`}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Member Package</p>
+                            <p className="mt-1 text-sm font-medium text-white">{formatAmount(row.package_amount)} {row.token_symbol || ""}</p>
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-[0.14em] text-[#6f8aa5]">Member Daily ROI</p>

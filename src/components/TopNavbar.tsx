@@ -3,7 +3,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useSettings } from "@/context/SettingsContext";
-import { Bell, Menu, Moon, Search, Sun, Type, User, Monitor, LogOut, Settings, Globe, ChevronRight } from "lucide-react";
+import { Bell, Menu, Moon, Search, Sun, Type, User, Monitor, LogOut, Settings, Globe, ChevronRight, Shield } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import api from '@/lib/api';
@@ -354,6 +354,13 @@ export default function TopNavbar() {
                                 className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                             >
                                 <User size={16} /> Profile
+                            </Link>
+                            <Link
+                                href="/profile/security"
+                                onClick={() => setShowProfileMenu(false)}
+                                className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                            >
+                                <Shield size={16} /> Security
                             </Link>
                             <Link
                                 href="/settings/roles"

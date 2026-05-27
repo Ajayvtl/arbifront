@@ -12,11 +12,22 @@ export default function CompanyCommissionsPage() {
   const [loading, setLoading] = useState(true);
   const [totals, setTotals] = useState<CommissionBucket[]>([]);
   const [topEarners, setTopEarners] = useState<Earner[]>([]);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [search]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get("/mlm/commissions/summary", { params: { days } });
+      const response = await api.get("/mlm/commissions/summary", {
+        params: { days, search: debouncedSearch },
+      });
       const data = response.data?.data || {};
       setTotals((data.totals || []) as CommissionBucket[]);
       setTopEarners((data.topEarners || []) as Earner[]);
@@ -28,7 +39,7 @@ export default function CompanyCommissionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [days]);
+  }, [days, debouncedSearch]);
 
   useEffect(() => {
     void loadData();
@@ -97,7 +108,27 @@ export default function CompanyCommissionsPage() {
       </div>
 
       <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-auto">
-        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 text-sm font-medium">Top Earners</div>
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 flex-wrap">
+          <span className="text-sm font-medium">Top Earners</span>
+          <div className="relative w-full max-w-xs">
+            <input
+              type="text"
+              placeholder="Search wallet address..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pr-8 pl-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500">
             <tr>

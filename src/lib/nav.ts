@@ -51,9 +51,19 @@ export const MLM_END_USER_MENU: AppMenuItem[] = [
 
 // MLM Company Admin (Tenant Company) Menu
 export const COMPANY_ADMIN_MENU: AppMenuItem[] = [
+    // Rearranged Admin-only items (first 10)
     { section: "Developer", name: "Command Center", href: "/developer/dashboard", icon: "LayoutDashboard", roleScope: "admin" },
     { section: "Developer", name: "Member Registry", href: "/developer/company/members", icon: "Users", roleScope: "admin" },
-    { section: "Developer", name: "Commission Runs", href: "/developer/company/commissions", icon: "Calculator", roleScope: "admin" },
+    { section: "Developer", name: "ROI Credited", href: "/developer/company/roi-credited", icon: "Calculator", roleScope: "admin" },
+    { section: "Developer", name: "Commission Run", href: "/developer/company/commissions", icon: "Calculator", roleScope: "admin" },
+    { section: "Developer", name: "Exch Logs", href: "/developer/company/exch-logs", icon: "ArrowLeftRight", roleScope: "admin" },
+    { section: "Developer", name: "Payout Queue", href: "/developer/company/payouts", icon: "FileText", roleScope: "admin" },
+    { section: "Developer", name: "Payment Logs", href: "/developer/company/transactions", icon: "Wallet", roleScope: "admin" },
+    { section: "Developer", name: "Plan Catalog", href: "/developer/company/plans", icon: "ShoppingBag", roleScope: "admin" },
+    { section: "Developer", name: "Level Income", href: "/developer/company/level-income", icon: "GitBranch", roleScope: "admin" },
+    { section: "Developer", name: "Rank & Rewards", href: "/developer/company/ranks", icon: "Shield", roleScope: "admin" },
+
+    // Developer/Operations items
     { section: "Developer", name: "Sponsor Income Logs", href: "/developer/company/direct-income", icon: "Wallet" },
     { section: "Developer", name: "Sponsor Income Rules", href: "/developer/company/direct-income-rule", icon: "Settings" },
     { section: "Developer", name: "ROI Increment Rules", href: "/admin/company/booster", icon: "Settings" },
@@ -61,21 +71,14 @@ export const COMPANY_ADMIN_MENU: AppMenuItem[] = [
     { section: "Developer", name: "Future Features", href: "/developer/company/placeholder", icon: "FlaskConical" },
     { section: "Developer", name: "ROI Increment Logs", href: "/developer/company/working-gain", icon: "BarChart3" },
     { section: "Developer", name: "Matching Inc", href: "/developer/company/matching-inc", icon: "GitBranch" },
-    { section: "Developer", name: "Level Income", href: "/developer/company/level-income", icon: "GitBranch", roleScope: "admin" },
-    { section: "Developer", name: "Payment Logs", href: "/developer/company/transactions", icon: "Wallet", roleScope: "admin" },
-    { section: "Developer", name: "Payout Queue", href: "/developer/company/payouts", icon: "FileText", roleScope: "admin" },
     { section: "Developer", name: "E-Wallet Ledger", href: "/developer/company/ledger", icon: "CircleStackIcon" },
     { section: "Developer", name: "ROI & Payment Mode", href: "/developer/company/bonuses", icon: "Tag" },
     { section: "Developer", name: "ROI Credit Scheduler", href: "/developer/company/roi-credit", icon: "Activity" },
     { section: "Developer", name: "Joining Bonus", href: "/developer/company/joining-bonus", icon: "Tag" },
     { section: "Developer", name: "Fast-Start Bonus", href: "/developer/company/fast-start-bonus", icon: "Activity" },
-    { section: "Developer", name: "Plan Catalog", href: "/developer/company/plans", icon: "ShoppingBag", roleScope: "admin" },
-    { section: "Developer", name: "Rank & Reward", href: "/developer/company/ranks", icon: "Shield", roleScope: "admin" },
     { section: "Developer", name: "Wallet Types", href: "/developer/company/wallet-types", icon: "Wallet" },
     { section: "Developer", name: "Network Settings", href: "/developer/company/network-settings", icon: "Activity" },
     { section: "Developer", name: "Exch", href: "/developer/company/exch", icon: "ArrowLeftRight" },
-    { section: "Developer", name: "Exch Logs", href: "/developer/company/exch-logs", icon: "ArrowLeftRight", roleScope: "admin" },
-    { section: "Developer", name: "ROI Credited", href: "/developer/company/roi-credited", icon: "Calculator", roleScope: "admin" },
     { section: "Developer", name: "Testing Tools", href: "/developer/company/testing", icon: "FlaskConical" },
     { section: "Developer", name: "Formulation System", href: "/admin/settings/formula", icon: "FlaskConical", roleScope: "developer" },
     { section: "Developer", name: "Company Settings", href: "/developer/settings/general", icon: "Settings", roleScope: "developer" },

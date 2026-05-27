@@ -209,7 +209,7 @@ export default function CompanyLevelIncomePage() {
                 <p>The distribution is idempotent per ROI credit date, so the same level payout is not duplicated on retries.</p>
               </div>
               <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
-                Keep the total percentage sensible. This matrix is now live against Daily Income credits, not just a placeholder form.
+                Keep the total percentage sensible. This matrix is now live against Daily Income credits.
               </div>
               {!isReadOnlyAdmin && (
                 <button
