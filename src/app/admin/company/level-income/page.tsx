@@ -171,7 +171,7 @@ export default function CompanyLevelIncomePage() {
                       </td>
                       <td className="px-4 py-3 text-slate-500">
                         {row.enabled && row.percent > 0
-                          ? `${row.percent.toFixed(2)}% of member Daily Income credit`
+                          ? `${row.percent.toFixed(2)}%`
                           : "No payout"}
                       </td>
                     </tr>
@@ -180,49 +180,31 @@ export default function CompanyLevelIncomePage() {
               </table>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-              <div className="flex items-center gap-2">
-                <GitBranch className="h-5 w-5 text-amber-500" />
-                <h2 className="text-lg font-semibold">How It Works</h2>
-              </div>
-              <div className="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
-                <p>When a member receives Daily Income, the system checks the active upline chain up to level 20.</p>
-                {!isReadOnlyAdmin && (
-                  <label className="space-y-1 block">
-                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Credit Level Income To Wallet Type</span>
-                    <select
-                      value={levelIncomeBalanceType}
-                      onChange={(e) => setLevelIncomeBalanceType(e.target.value as WalletTypeKey)}
-                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-                    >
-                      {WALLET_TYPE_KEYS.map((key) => (
-                        <option key={key} value={key}>{walletTypeLabels[key]}</option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-                <p>
-                  If a level is enabled, that upline gets the configured percentage of the member&apos;s Daily Income credited into
-                  {" "}
-                  <span className="font-semibold">{walletTypeLabels[levelIncomeBalanceType]}</span>.
-                </p>
-                <p>The distribution is idempotent per ROI credit date, so the same level payout is not duplicated on retries.</p>
-              </div>
-              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
-                Keep the total percentage sensible. This matrix is now live against Daily Income credits.
-              </div>
-              {!isReadOnlyAdmin && (
+            {!isReadOnlyAdmin && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950 space-y-4">
+                <label className="space-y-1 block">
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Credit Level Income To Wallet Type</span>
+                  <select
+                    value={levelIncomeBalanceType}
+                    onChange={(e) => setLevelIncomeBalanceType(e.target.value as WalletTypeKey)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    {WALLET_TYPE_KEYS.map((key) => (
+                      <option key={key} value={key}>{walletTypeLabels[key]}</option>
+                    ))}
+                  </select>
+                </label>
                 <button
                   type="button"
                   onClick={() => void save()}
                   disabled={saving}
-                  className="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
                 >
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {saving ? "Saving..." : "Save Level Income"}
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </>
       )}

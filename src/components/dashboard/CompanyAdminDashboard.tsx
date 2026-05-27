@@ -1722,7 +1722,7 @@ export default function CompanyAdminDashboard() {
 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
-                    <div className="text-[9px] font-bold text-slate-500">{exchangeSummary?.nativeSymbol || "BNB"}</div>
+                    <div className="text-[9px] font-bold text-slate-500">{"BNB"}</div>
                     <div className="mt-1 font-mono text-xs font-bold text-slate-200">{exchangeSummary?.depositBalances?.bnb || "0.0000"}</div>
                   </div>
                   <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
@@ -1762,7 +1762,7 @@ export default function CompanyAdminDashboard() {
 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
-                    <div className="text-[9px] font-bold text-slate-500">{exchangeSummary?.nativeSymbol || "BNB"}</div>
+                    <div className="text-[9px] font-bold text-slate-500">{"BNB"}</div>
                     <div className="mt-1 font-mono text-xs font-bold text-slate-200">{exchangeSummary?.withdrawBalances?.bnb || "0.0000"}</div>
                   </div>
                   <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
@@ -1803,7 +1803,7 @@ export default function CompanyAdminDashboard() {
 
                   <div className="grid grid-cols-3 gap-2">
                     <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
-                      <div className="text-[9px] font-bold text-slate-500">{exchangeSummary?.nativeSymbol || "BNB"}</div>
+                      <div className="text-[9px] font-bold text-slate-500">{"BNB"}</div>
                       <div className="mt-1 font-mono text-xs font-bold text-slate-200">{w.balances?.bnb || "0.0000"}</div>
                     </div>
                     <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">

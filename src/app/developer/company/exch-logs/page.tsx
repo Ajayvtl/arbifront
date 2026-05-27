@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, ArrowLeftRight, RefreshCw, ShieldCheck } from "lucide-react";
+import { Loader2, ArrowLeftRight, RefreshCw, ShieldCheck, Search } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
 
@@ -65,6 +65,7 @@ export default function ExchangeLogsPage() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [retryingId, setRetryingId] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
 
   const [exchangeSummary, setExchangeSummary] = useState<ExchangeActiveSummary | null>(null);
   const [exchangeLoading, setExchangeLoading] = useState(false);
@@ -301,6 +302,15 @@ export default function ExchangeLogsPage() {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="relative max-w-md mb-4">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search by wallet, order, tx hash…"
+            className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm"
+          />
+        </div>
         {loading ? (
           <div className="flex items-center gap-2 text-slate-500 py-8 justify-center">
             <Loader2 className="h-6 w-6 animate-spin" />
@@ -314,7 +324,7 @@ export default function ExchangeLogsPage() {
           <>
             {/* Mobile View */}
             <div className="space-y-3 lg:hidden">
-              {rows.map((row) => (
+              {rows.filter(r => !search || `#${r.log_id} #${r.order_id} #${r.user_id} ${r.wallet_address || ''} ${r.tx_hash || ''} ${r.status}`.toLowerCase().includes(search.toLowerCase())).map((row) => (
                 <div key={`${row.status}-${row.log_id}`} className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -388,7 +398,7 @@ export default function ExchangeLogsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
+                  {rows.filter(r => !search || `#${r.log_id} #${r.order_id} #${r.user_id} ${r.wallet_address || ''} ${r.tx_hash || ''} ${r.status}`.toLowerCase().includes(search.toLowerCase())).map((row) => (
                     <tr key={`${row.status}-${row.log_id}`} className="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                       <td className="py-3 pr-3">
                         <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${

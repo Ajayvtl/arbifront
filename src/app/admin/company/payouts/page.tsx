@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Search } from "lucide-react";
 
 type Payout = {
   id: number;
@@ -33,6 +33,7 @@ export default function CompanyPayoutsPage() {
   const [status, setStatus] = useState("");
   const [rows, setRows] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [exchangeSummary, setExchangeSummary] = useState<ExchangeActiveSummary | null>(null);
 
   // Pagination State
@@ -73,12 +74,18 @@ export default function CompanyPayoutsPage() {
     setCurrentPage(1);
   }, [status]);
 
-  const totalPayouts = rows.length;
+  const filteredRows = useMemo(() => {
+    if (!search) return rows;
+    const q = search.toLowerCase();
+    return rows.filter(r => `#${r.id} #${r.user_id} ${r.user_wallet_address || ''} ${r.withdrawal_wallet_address || ''} ${r.tx_hash || ''} ${r.status}`.toLowerCase().includes(q));
+  }, [rows, search]);
+
+  const totalPayouts = filteredRows.length;
   const totalPages = Math.max(1, Math.ceil(totalPayouts / itemsPerPage));
   const paginatedRows = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return rows.slice(start, start + itemsPerPage);
-  }, [rows, currentPage, itemsPerPage]);
+    return filteredRows.slice(start, start + itemsPerPage);
+  }, [filteredRows, currentPage, itemsPerPage]);
 
   const updateStatus = async (row: Payout, next: "APPROVED" | "REJECTED" | "SUCCESS") => {
     try {
@@ -111,6 +118,18 @@ export default function CompanyPayoutsPage() {
             <option key={opt || "ALL"} value={opt}>{opt || "All statuses"}</option>
           ))}
         </select>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4">
+        <div className="relative max-w-md">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+            placeholder="Search by user, wallet, tx hash…"
+            className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+          />
+        </div>
       </div>
 
       {exchangeSummary && (

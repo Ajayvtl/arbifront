@@ -208,7 +208,7 @@ export default function CompanyPlansPage() {
 
       {isReadOnlyAdmin ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
-          Admin role has read-only access to the plan catalog.
+          Fixed Plans
         </div>
       ) : (
         <form onSubmit={submit} className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 md:p-5 space-y-4">
@@ -363,15 +363,14 @@ export default function CompanyPlansPage() {
               <th className="text-left px-4 py-3">Cap Multiplier</th>
               <th className="text-left px-4 py-3">Currency</th>
               <th className="text-left px-4 py-3">ROI Wallet</th>
-              <th className="text-left px-4 py-3">Created</th>
               {!isReadOnlyAdmin && <th className="text-left px-4 py-3">Action</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-6 text-slate-500" colSpan={isReadOnlyAdmin ? 11 : 12}>Loading plans...</td></tr>
+              <tr><td className="px-4 py-6 text-slate-500" colSpan={isReadOnlyAdmin ? 10 : 11}>Loading plans...</td></tr>
             ) : plans.length === 0 ? (
-              <tr><td className="px-4 py-6 text-slate-500" colSpan={isReadOnlyAdmin ? 11 : 12}>No plans available.</td></tr>
+              <tr><td className="px-4 py-6 text-slate-500" colSpan={isReadOnlyAdmin ? 10 : 11}>No plans available.</td></tr>
             ) : plans.map((plan) => (
               <tr key={plan.id} className="border-t border-slate-100 dark:border-slate-800">
                 <td className="px-4 py-3">#{plan.id}</td>
@@ -384,7 +383,6 @@ export default function CompanyPlansPage() {
                 <td className="px-4 py-3">{Number(plan.max_return_multiplier || 2).toFixed(2)}x</td>
                 <td className="px-4 py-3">{plan.payment_currency || "AUTO"}</td>
                 <td className="px-4 py-3">{walletTypeLabels[(String(plan.roi_credit_balance_type || "roi_balance").trim().toLowerCase() as WalletTypeKey)] || String(plan.roi_credit_balance_type || "roi_balance")}</td>
-                <td className="px-4 py-3">{new Date(plan.created_at).toLocaleDateString()}</td>
                 {!isReadOnlyAdmin && (
                   <td className="px-4 py-3">
                     <button

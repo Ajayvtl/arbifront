@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, Search } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
 
@@ -46,6 +46,7 @@ export default function CompanyPaymentLogsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState("");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -78,6 +79,15 @@ export default function CompanyPaymentLogsPage() {
           <p className="text-gray-500">Responsive transaction history for end-user package payments with pagination.</p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Search by user, plan, tx hash…"
+              className="pl-9 pr-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm w-56"
+            />
+          </div>
           <select
             value={status}
             onChange={(e) => {
@@ -109,7 +119,7 @@ export default function CompanyPaymentLogsPage() {
         ) : (
           <>
             <div className="space-y-3 lg:hidden">
-              {rows.map((row) => (
+              {rows.filter(r => !search || `#${r.id} #${r.user_id} ${r.plan_name || ''} ${r.tx_hash || ''} ${r.receiver_address || ''} ${r.status}`.toLowerCase().includes(search.toLowerCase())).map((row) => (
                 <div key={row.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -152,7 +162,7 @@ export default function CompanyPaymentLogsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
+                  {rows.filter(r => !search || `#${r.id} #${r.user_id} ${r.plan_name || ''} ${r.tx_hash || ''} ${r.receiver_address || ''} ${r.status}`.toLowerCase().includes(search.toLowerCase())).map((row) => (
                     <tr key={row.id} className="border-b border-slate-100 dark:border-slate-700">
                       <td className="py-3 pr-3">#{row.id}</td>
                       <td className="py-3 pr-3">#{row.user_id}</td>
