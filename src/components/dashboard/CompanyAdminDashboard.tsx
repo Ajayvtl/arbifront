@@ -1485,7 +1485,6 @@ export default function CompanyAdminDashboard() {
                           </div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: `${col}20`, color: col }}>{plan.payment_currency}</span>
-                            <span className="text-[10px] text-slate-400">{plan.duration_days}d duration</span>
                             <span className="text-[10px] font-bold text-white">{plan.max_return_multiplier}x cap</span>
                           </div>
                         </div>
@@ -1807,13 +1806,7 @@ export default function CompanyAdminDashboard() {
               )}
             </div>
 
-            {/* Exchange Routing Config action */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 flex items-center justify-between gap-3">
-              <span className="text-xs text-slate-400">Need to modify keys or routing address definitions?</span>
-              <Link href="/developer/company/exch" className="text-xs font-bold text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1">
-                Go to Exchange Router Configuration <ArrowUpRight className="h-4 w-4" />
-              </Link>
-            </div>
+
           </div>
         )}
 
